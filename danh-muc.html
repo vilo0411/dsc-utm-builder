@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Danh mục · DSC UTM Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="cat">
+  <nav class="cat-nav" id="catNav" aria-label="Danh mục"></nav>
+  <section class="card cat-main" id="main"></section>
+</div>
+
+<script src="assets/data.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/common.js"></script>
+<script>
+// Wait for the shared catalog (Supabase) before reading it
+DSC.ready().then(function () {
+  "use strict";
+  const { $, el, slug, PLATFORMS, PLATFORM_ORDER, POS, clone } = DSC;
+  DSC.renderNav("catalog");
+  let D = DSC.loadData();
+
+  const SCHEMA = {
+    accounts: { title: "Kênh / tài khoản", desc: "Mỗi dòng là một tài khoản đăng link. utm_medium là mã định danh, đã dùng thì không đổi.",
+      key: r => `${r.s}|${r.m}`, blank: () => ({ p: "facebook", s: "facebook", m: "", name: "", sub: "", owner: "", pos: [""] }),
+      cols: [
+        { k: "p", label: "Nền tảng", type: "select", options: () => PLATFORM_ORDER.filter(p => p !== "other").map(p => [p, PLATFORMS[p].name]) },
+        { k: "s", label: "utm_source", type: "code" },
+        { k: "m", label: "utm_medium", type: "code" },
+        { k: "name", label: "Tên hiển thị" },
+        { k: "sub", label: "Mô tả ngắn" },
+        { k: "owner", label: "Team quản lý", list: () => [...new Set(D.accounts.map(a => a.owner).filter(Boolean))] },
+        { k: "focus", label: "Định vị nội dung", wide: true },
+        { k: "to", label: "Trang đích cho video / tin", type: "multi", options: () => DSC.activeLandings(D).map(l => [l.id, DSC.landingLabel(l)]) },
+        { k: "mode", label: "Cách gửi link", type: "select", options: () => [["", "Theo video / tin"], ["script", "Theo kịch bản"]] },
+        { k: "script", label: "Kịch bản (nếu có)", wide: true },
+        { k: "pos", label: "Vị trí cho phép", type: "pos" },
+        { k: "paid", label: "Trả tiền", type: "bool" },
+        { k: "inactive", label: "Tạm ngưng", type: "bool" }
+      ] },
+    positions: { title: "Vị trí link", desc: "Mã vị trí đứng đầu utm_content. Vị trí mới dùng hình minh họa “trong bài” của nền tảng; bio và menu là link cố định.",
+      key: r => r.code || "", blank: () => ({ code: "", label: "", help: "" }),
+      cols: [
+        { k: "label", label: "Tên hiển thị", slugTo: "code" },
+        { k: "code", label: "Mã", type: "code" },
+        { k: "help", label: "Giải thích", wide: true }
+      ] },
+    landings: { title: "Trang đích", desc: "Trang có sẵn để chọn khi tạo link. Product mặc định được điền tự động khi chọn trang.",
+      key: r => r.id, blank: () => ({ id: "", site: "Web chính", label: "", url: "https://www.dsc.com.vn/", product: "" }),
+      cols: [
+        { k: "id", label: "Mã nội bộ", type: "code" },
+        { k: "site", label: "Site", list: () => [...new Set(D.landings.map(l => l.site))] },
+        { k: "label", label: "Tên trang" },
+        { k: "url", label: "URL", type: "url", wide: true },
+        { k: "product", label: "Product mặc định", type: "select", options: () => [["", "—"], ...D.products.map(p => [p.code, p.name])] },
+        { k: "state", label: "Trạng thái", type: "select", options: () => [["", "Đang dùng"], ["tam", "Tạm thời"], ["off", "Đã tắt"]] },
+        { k: "note", label: "Ghi chú", wide: true }
+      ] },
+    products: { title: "Sản phẩm", desc: "Giá trị của utm_product.", key: r => r.code, blank: () => ({ group: "", name: "", code: "" }),
+      cols: [
+        { k: "group", label: "Nhóm", list: () => [...new Set(D.products.map(p => p.group))] },
+        { k: "name", label: "Tên sản phẩm", slugTo: "code" },
+        { k: "code", label: "Mã", type: "code" }
+      ] },
+    prefixes: { title: "Loại nội dung", desc: "Tiền tố đứng đầu utm_content (sau vị trí).", key: r => r.code, blank: () => ({ code: "", label: "", help: "" }),
+      cols: [
+        { k: "label", label: "Tên hiển thị", slugTo: "code" },
+        { k: "code", label: "Mã", type: "code" },
+        { k: "help", label: "Gợi ý" }
+      ] },
+    routes: { title: "Gợi ý trang đích theo loại bài", desc: "Trang Tạo link gợi ý trang đích theo thứ tự các dòng. Một loại bài có thể có nhiều dòng.",
+      key: r => `${r.prefix}|${r.to}`, blank: () => ({ prefix: "", to: "" }),
+      cols: [
+        { k: "prefix", label: "Loại nội dung", type: "select", options: () => [["", "Chọn…"], ...D.prefixes.map(p => [p.code, p.label])] },
+        { k: "to", label: "Trang đích", type: "select", options: landingOpts }
+      ] },
+    slots: { title: "Link cố định (kế hoạch)", desc: "Bio, nút CTA, menu của từng kênh. Đổi trang đích ở đây thì phải cài lại link mới trên kênh.",
+      key: r => `${r.m}|${r.where}`, blank: () => ({ m: "", pos: "bio", where: "", how: "", to: "" }),
+      cols: [
+        { k: "m", label: "Tài khoản", type: "select", options: () => [["", "Chọn…"], ...D.accounts.filter(a => !a.paid).map(a => [a.m, `${PLATFORMS[a.p].name} · ${a.name}`])] },
+        { k: "pos", label: "Vị trí", type: "select", options: () => [["bio", "bio"], ["menu", "menu"]] },
+        { k: "where", label: "Tên vị trí" },
+        { k: "how", label: "Cách đặt", wide: true },
+        { k: "to", label: "Trang đích", type: "select", options: landingOpts }
+      ] },
+    campaigns: { title: "Chiến dịch gợi ý", desc: "Tên chiến dịch hiện trong ô gợi ý. Người dùng vẫn gõ được tên mới.", key: r => slug(r.name), blank: () => ({ name: "" }),
+      cols: [{ k: "name", label: "Tên chiến dịch", wide: true }] },
+    hosts: { title: "Domain hợp lệ", desc: "Link ngoài các domain này sẽ bị cảnh báo khi tạo.", key: r => r.host, blank: () => ({ host: "" }),
+      cols: [{ k: "host", label: "Domain", wide: true }] },
+    groups: { title: "Kênh (bản đồ hành trình)", desc: "Cột “Thu hút” trên bản đồ: mỗi dòng là một nền tảng. Trang đích ưu tiên dùng khi tài khoản chưa có “Trang đích cho video / tin” riêng.",
+      key: r => r.id, blank: () => ({ id: "", name: "", platforms: [], role: "Thu hút", goal: "", cta: "", landings: [], kpi: "" }),
+      cols: [
+        { k: "name", label: "Tên kênh", slugTo: "id" },
+        { k: "id", label: "Mã", type: "code" },
+        { k: "platforms", label: "Nền tảng", type: "multi", options: () => PLATFORM_ORDER.filter(p => p !== "other").map(p => [p, PLATFORMS[p].name]) },
+        { k: "role", label: "Vai trò", type: "select", options: () => [["Thu hút", "Thu hút"], ["Nuôi dưỡng", "Nuôi dưỡng"], ["Chuyển đổi", "Chuyển đổi"]] },
+        { k: "goal", label: "Mục tiêu", wide: true },
+        { k: "cta", label: "CTA / vị trí link", wide: true },
+        { k: "landings", label: "Trang đích mặc định (link theo video)", type: "multi", options: () => DSC.activeLandings(D).map(l => [l.id, DSC.landingLabel(l)]) },
+        { k: "kpi", label: "Chỉ số theo dõi", wide: true }
+      ] },
+    formats: { title: "Định dạng theo nền tảng", desc: "Video ngắn, video dài, livestream… của từng nền tảng: link đặt ở đâu, nói gì trong video, mẫu utm_content. Hiện ở tab Hướng dẫn theo kênh.",
+      key: r => `${r.p}|${r.fmt}|${r.label}`, blank: () => ({ p: "facebook", fmt: "short", label: "", where: "", cta: "", content: "" }),
+      cols: [
+        { k: "p", label: "Nền tảng", type: "select", options: () => PLATFORM_ORDER.filter(p => p !== "other").map(p => [p, PLATFORMS[p].name]) },
+        { k: "fmt", label: "Loại", type: "select", options: () => [["short", "Video ngắn"], ["long", "Video dài"], ["live", "Livestream"], ["msg", "Tin nhắn"], ["ad", "Quảng cáo"]] },
+        { k: "label", label: "Tên định dạng" },
+        { k: "where", label: "Link đặt ở", wide: true },
+        { k: "cta", label: "Nói gì trong video (CTA)", wide: true },
+        { k: "content", label: "Mẫu utm_content", wide: true }
+      ] },
+    hubs: { title: "Nuôi dưỡng (bản đồ hành trình)", desc: "Cột giữa trên bản đồ: nhóm trang làm ấm khách trước khi mở tài khoản. Mỗi nhóm cần một cách đẩy khách sang Mở tài khoản.",
+      key: r => r.id, blank: () => ({ id: "", name: "", landings: [], next: "", kpi: "" }),
+      cols: [
+        { k: "name", label: "Tên nhóm", slugTo: "id" },
+        { k: "id", label: "Mã", type: "code" },
+        { k: "landings", label: "Trang đích trong nhóm", type: "multi", options: () => D.landings.map(l => [l.id, DSC.landingLabel(l)]) },
+        { k: "next", label: "Cách đẩy sang Mở tài khoản", wide: true },
+        { k: "kpi", label: "Chỉ số theo dõi", wide: true }
+      ] },
+    conversions: { title: "Chuyển đổi", desc: "Tích “Đích chính” cho mục tiêu cuối (Mở tài khoản) và chọn trang của nó. Chuyển đổi phụ gắn vào một nhóm Nuôi dưỡng.",
+      key: r => r.id, blank: () => ({ id: "", name: "" }),
+      cols: [
+        { k: "name", label: "Tên chuyển đổi", slugTo: "id" },
+        { k: "id", label: "Mã", type: "code" },
+        { k: "main", label: "Đích chính", type: "bool" },
+        { k: "landing", label: "Trang của đích chính", type: "select", options: () => [["", "—"], ...D.landings.map(l => [l.id, DSC.landingLabel(l)])] },
+        { k: "hub", label: "Chuyển đổi phụ thuộc nhóm", type: "select", options: () => [["", "—"], ...D.hubs.map(h => [h.id, h.name])] }
+      ] },
+    steps: { title: "Bước funnel + event GA4", desc: "Các bước của từng chuyển đổi, theo thứ tự dòng. Điền đúng tên event đã cài trên GA4. Tích “Chính” cho bước chuyển đổi cuối.",
+      key: r => `${r.conv}|${r.step}`, blank: () => ({ conv: "", step: "", event: "" }),
+      cols: [
+        { k: "conv", label: "Chuyển đổi", type: "select", options: () => [["", "Chọn…"], ...D.conversions.map(c => [c.id, c.name])] },
+        { k: "step", label: "Bước", wide: true },
+        { k: "event", label: "Event GA4", type: "code" },
+        { k: "key", label: "Chính", type: "bool" }
+      ] }
+  };
+  function landingOpts() { return [["", "Chọn…"], ...D.landings.map(l => [l.id, `${DSC.landingLabel(l)} (${l.site})${l.state === "off" ? " – đã tắt" : ""}`])]; }
+
+  let cur = (location.hash.slice(1) in SCHEMA) || location.hash === "#io" ? location.hash.slice(1) : "accounts";
+  let work = cur === "io" ? null : clone(D[cur]), dirty = false;
+
+  // ===== Validation =====
+  function validate(key, rows) {
+    const S = SCHEMA[key], w = [], seen = {};
+    rows.forEach((r, i) => {
+      const n = `Dòng ${i + 1}`;
+      // Position code "" (in post / message) is valid
+      S.cols.filter(c => c.type === "code" && !(key === "positions" && c.k === "code")).forEach(c => { if (!r[c.k]) w.push([i, `${n}: thiếu ${c.label}.`]); });
+      const k = S.key(r);
+      if (k && seen[k] !== undefined) w.push([i, `${n}: trùng với dòng ${seen[k] + 1}.`]); else seen[k] = i;
+      if (key === "accounts" && !r.paid && /cp|ppc|^paid/.test(`${r.m}`)) w.push([i, `${n}: medium organic không được chứa “cp”, “ppc” hoặc bắt đầu bằng “paid”.`]);
+      if (key === "accounts" && r.paid && r.m !== "cpc") w.push([i, `${n}: tài khoản trả tiền phải có medium “cpc”.`]);
+      if (key === "landings") {
+        try { const u = new URL(r.url); if (!D.hosts.some(h => h.host === u.hostname)) w.push([i, `${n}: domain ${u.hostname} không nằm trong Domain hợp lệ.`]); }
+        catch (e) { w.push([i, `${n}: URL chưa đúng.`]); }
+      }
+      if ((key === "routes" || key === "slots") && r.to) {
+        const l = D.landings.find(x => x.id === r.to);
+        if (!l) w.push([i, `${n}: trang đích “${r.to}” không còn trong danh sách.`]);
+        else if (l.state === "off") w.push([i, `${n}: trang đích “${l.label}” đã tắt, cần đổi sang trang khác.`]);
+      }
+      if (key === "landings" && r.state === "off") w.push([i, `${n}: trang đã tắt. Kiểm tra lại Link cố định và Gợi ý trang đích đang trỏ về trang này.`]);
+      if (key === "slots" && r.m && !D.accounts.some(a => a.m === r.m)) w.push([i, `${n}: tài khoản “${r.m}” không còn trong danh sách.`]);
+    });
+    // Rule 4: never rename codes already in use
+    const def = window.DSC_DEFAULTS[key];
+    if (["accounts", "products", "prefixes", "landings"].includes(key) && def) {
+      const now = new Set(rows.map(S.key));
+      def.filter(r => !now.has(S.key(r))).forEach(r => w.push([-1, `Mã “${S.key(r).replace(/^[^|]*\|/, "")}” trong file gốc đã bị xóa hoặc đổi. Đổi mã đã dùng sẽ tách lịch sử GA4 làm đôi.`]));
+    }
+    return w;
+  }
+
+  // ===== Render =====
+  function renderNav() {
+    const nav = $("catNav"); nav.innerHTML = "";
+    Object.entries(SCHEMA).forEach(([k, S]) => (k === "groups" ? nav.append(el("hr")) : 0, nav.append(el("button", { type: "button", role: "tab", "aria-selected": String(k === cur), onclick: () => go(k) },
+      el("span", {}, S.title, D.custom.includes(k) ? el("span", { class: "dotc", title: "Chỉnh riêng trên trình duyệt này" }) : null), el("small", {}, D[k].length)))));
+    nav.append(el("hr"), el("button", { type: "button", role: "tab", "aria-selected": String(cur === "io"), onclick: () => go("io") }, el("span", {}, DSC.configured() ? "Dùng chung / xuất file" : "Xuất / nhập file")));
+  }
+  function go(k) {
+    if (dirty && !confirm("Có thay đổi chưa lưu. Bỏ thay đổi?")) return;
+    cur = k; history.replaceState(null, "", "#" + k);
+    work = k === "io" ? null : clone(D[k]); dirty = false; render();
+  }
+
+  function cellInput(c, r, i) {
+    const set = v => { r[c.k] = v; touch(); };
+    if (c.type === "select") {
+      const s = el("select", { "aria-label": c.label, onchange: e => set(e.target.value) }, c.options().map(([v, t]) => el("option", { value: v }, t)));
+      s.value = r[c.k] || "";
+      if (r[c.k] && s.value !== r[c.k]) { s.append(el("option", { value: r[c.k] }, r[c.k] + " (không tồn tại)")); s.value = r[c.k]; }
+      return s;
+    }
+    if (c.type === "bool") return el("input", { type: "checkbox", checked: !!r[c.k], "aria-label": c.label, onchange: e => { if (e.target.checked) r[c.k] = true; else delete r[c.k]; touch(); } });
+    if (c.type === "multi") {
+      const sel = new Set(r[c.k] || []);
+      return el("div", { class: "pos-multi" }, c.options().map(([v, t]) => el("label", {},
+        el("input", { type: "checkbox", checked: sel.has(v), onchange: e => {
+          e.target.checked ? sel.add(v) : sel.delete(v);
+          r[c.k] = c.options().map(o => o[0]).filter(x => sel.has(x)); touch();
+        } }), t)));
+    }
+    if (c.type === "pos") {
+      const cur = new Set(r.pos || []);
+      return el("div", { class: "pos-multi" }, Object.keys(POS).map(p => el("label", {},
+        el("input", { type: "checkbox", checked: cur.has(p), onchange: e => {
+          e.target.checked ? cur.add(p) : cur.delete(p);
+          r.pos = Object.keys(POS).filter(x => cur.has(x)); if (!r.pos.length) delete r.pos; touch();
+        } }), (POS[p] || {}).label || p || "trong bài")));
+    }
+    const listId = c.list ? `dl_${c.k}` : null;
+    const inp = el("input", { type: c.type === "url" ? "url" : "text", class: c.type === "code" ? "code" : "", value: r[c.k] || "", "aria-label": c.label, list: listId,
+      style: c.wide ? { minWidth: "260px" } : null,
+      oninput: e => { r[c.k] = e.target.value; touch(); },
+      onchange: e => {
+        if (c.type === "code") { const v = slug(e.target.value); e.target.value = v; r[c.k] = v; }
+        // Auto-fill code from name when the code is still empty
+        if (c.slugTo && !r[c.slugTo]) { r[c.slugTo] = slug(e.target.value); const t = e.target.closest("tr").querySelector(`[data-k="${c.slugTo}"] input`); if (t) t.value = r[c.slugTo]; }
+        touch();
+      } });
+    return inp;
+  }
+
+  function touch() { dirty = true; renderWarns(); $("saveBtn").disabled = false; $("undoBtn").disabled = false; }
+
+  function renderWarns() {
+    const w = validate(cur, work), ul = $("warns"); ul.innerHTML = "";
+    w.forEach(([, t]) => ul.append(el("li", {}, t)));
+    document.querySelectorAll("#ed tbody tr").forEach((tr, i) => tr.classList.toggle("bad", w.some(x => x[0] === i)));
+  }
+
+  function render() {
+    renderNav();
+    const m = $("main"); m.innerHTML = "";
+    if (cur === "io") return renderIO(m);
+    const S = SCHEMA[cur];
+    m.append(el("h2", {}, S.title), el("p", {}, S.desc, " ", sourceNote(cur)));
+    m.append(el("div", { class: "tbar" },
+      el("button", { type: "button", class: "btn", id: "saveBtn", disabled: !dirty, onclick: save }, "Lưu"),
+      el("button", { type: "button", class: "btn ghost", id: "undoBtn", disabled: !dirty, onclick: () => { work = clone(D[cur]); dirty = false; render(); } }, "Hủy thay đổi"),
+      el("button", { type: "button", class: "btn ghost", onclick: () => { work.push(S.blank()); touch(); render(); const rows = document.querySelectorAll("#ed tbody tr"); const last = rows[rows.length - 1]; last.classList.add("new"); const f = last.querySelector("input, select"); if (f) f.focus(); } }, "+ Thêm dòng"),
+      el("span", { class: "grow" }),
+      D.custom.includes(cur) || D.shared.includes(cur) ? el("button", { type: "button", class: "btn ghost danger", onclick: async () => {
+        if (!confirm(D.shared.includes(cur) ? "Đưa mục này về bản gốc trong data.js cho CẢ TEAM? Bản hiện tại vẫn khôi phục được trong lịch sử Supabase." : "Bỏ mọi chỉnh sửa của mục này, quay về bản gốc trong data.js?")) return;
+        await DSC.resetCollection(cur); D = DSC.loadData(); work = clone(D[cur]); dirty = false; render(); } }, "Về bản gốc") : null));
+    m.querySelector(".tbar #saveBtn").disabled = !dirty; m.querySelector(".tbar #undoBtn").disabled = !dirty;
+
+    // Datalists for free-text columns with suggestions
+    S.cols.filter(c => c.list).forEach(c => m.append(el("datalist", { id: `dl_${c.k}` }, c.list().map(v => el("option", { value: v })))));
+    const table = el("table", { class: "ed", id: "ed" },
+      el("thead", {}, el("tr", {}, el("th", {}, "#"), S.cols.map(c => el("th", {}, c.label)), el("th", {}))),
+      el("tbody", {}, work.map((r, i) => el("tr", {},
+        el("td", { class: "x hint" }, i + 1),
+        S.cols.map(c => el("td", { "data-k": c.k }, cellInput(c, r, i))),
+        el("td", { class: "x" },
+          el("button", { type: "button", title: "Lên", onclick: () => { if (i) { [work[i - 1], work[i]] = [work[i], work[i - 1]]; touch(); render(); } } }, "↑"),
+          el("button", { type: "button", title: "Xuống", onclick: () => { if (i < work.length - 1) { [work[i + 1], work[i]] = [work[i], work[i + 1]]; touch(); render(); } } }, "↓"),
+          el("button", { type: "button", title: "Xóa dòng", onclick: () => { work.splice(i, 1); touch(); render(); } }, "✕"))))));
+    m.append(el("div", { class: "tbl-wrap" }, table), el("ul", { class: "warns", id: "warns" }));
+    renderWarns();
+  }
+
+  // Where the shown rows come from, in plain words
+  function sourceNote(k) {
+    if (D.shared.includes(k)) {
+      const i = DSC.sharedInfo(k);
+      return el("span", { class: "src-note shared" }, "Dùng chung cả team", i ? ` · sửa lần cuối ${fmtTime(i.at)}${i.by ? " bởi " + i.by : ""}` : "", ".");
+    }
+    if (D.custom.includes(k)) return el("span", { class: "src-note local" }, DSC.configured() ? "Bản chỉnh riêng trên trình duyệt này, chưa đưa lên Supabase." : "Đang dùng bản đã chỉnh trên trình duyệt này.");
+    return el("span", { class: "src-note" }, DSC.isOnline() ? "Bản gốc từ data.js (chưa có trên Supabase, lưu lần đầu sẽ đưa lên cho cả team)." : "Đang dùng bản gốc từ file data.js.");
+  }
+  function fmtTime(t) { try { return new Date(t).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric" }); } catch (e) { return t; } }
+
+  async function save() {
+    const bad = validate(cur, work).filter(([i]) => i >= 0);
+    if (bad.length && !confirm(`Còn ${bad.length} cảnh báo. Vẫn lưu?`)) return;
+    // Someone else may have saved this collection since the page was opened
+    if (DSC.isOnline()) {
+      const before = DSC.sharedInfo(cur);
+      await DSC.refreshCatalog();
+      const after = DSC.sharedInfo(cur);
+      if (after && (!before || after.at !== before.at) &&
+        !confirm(`${after.by || "Người khác"} vừa sửa mục này lúc ${fmtTime(after.at)}. Lưu bây giờ sẽ ghi đè thay đổi của họ.\n\nBấm Hủy để xem bản mới (thay đổi của bạn sẽ mất), OK để vẫn lưu.`)) {
+        D = DSC.loadData(); work = clone(D[cur]); dirty = false; render(); return;
+      }
+    }
+    $("saveBtn").disabled = true;
+    const ok = await DSC.saveCollection(cur, work);
+    D = DSC.loadData();
+    if (!ok) { render(); return; }
+    work = clone(D[cur]); dirty = false; render();
+    toast(DSC.isOnline() ? "Đã lưu cho cả team." : "Đã lưu. Các trang khác dùng danh mục mới ngay trên trình duyệt này.");
+  }
+
+  // ===== Import / export =====
+  function snapshot() {
+    const out = { version: window.DSC_DEFAULTS.version || 2 };
+    DSC.COLLECTIONS.forEach(k => out[k] = D[k]);
+    return out;
+  }
+  function download(name, text, type) {
+    const a = el("a", { href: URL.createObjectURL(new Blob([text], { type })), download: name });
+    document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+  function renderIO(m) {
+    if (DSC.configured()) m.append(el("h2", {}, "Dữ liệu dùng chung (Supabase)"), renderShared(), el("hr", { class: "io-sep" }));
+    m.append(el("h2", {}, "Xuất / nhập file"),
+      el("p", {}, DSC.isOnline() ? "Danh mục đang dùng chung qua Supabase. File data.js chỉ còn là bản gốc dự phòng khi mất kết nối, nên thỉnh thoảng xuất lại để sao lưu." : "Chỉnh sửa ở Danh mục chỉ lưu trên trình duyệt của bạn. Muốn cả team dùng bản mới: xuất data.js, thay file assets/data.js trong repo rồi deploy."),
+      el("div", { class: "io" },
+        el("div", { class: "card" }, el("h3", {}, DSC.isOnline() ? "Sao lưu vào repo (data.js)" : "Cập nhật cho cả team"),
+          el("p", {}, "Tải file data.js chứa toàn bộ danh mục hiện tại, thay vào assets/data.js."),
+          el("button", { type: "button", class: "btn", onclick: () => download("data.js",
+            "// DSC UTM Builder – default catalog (presets). Exported from Danh mục on " + new Date().toISOString().slice(0, 10) + ".\n" +
+            "// Every page reads this file. Edits on \"Danh mục\" are stored per browser; export again to update this file.\n" +
+            "window.DSC_DEFAULTS = " + JSON.stringify(snapshot(), null, 2) + ";\n", "text/javascript") }, "Xuất data.js")),
+        el("div", { class: "card" }, el("h3", {}, "Gửi cho đồng nghiệp"),
+          el("p", {}, DSC.isOnline() ? "Sao lưu hoặc chuyển danh mục. Nhập JSON khi đang dùng Supabase sẽ ghi đè danh mục của cả team." : "Xuất file JSON để người khác nhập vào trình duyệt của họ, không cần sửa repo."),
+          el("div", { class: "tbar" },
+            el("button", { type: "button", class: "btn ghost", onclick: () => download("dsc-utm-danh-muc.json", JSON.stringify(snapshot(), null, 2), "application/json") }, "Xuất JSON"),
+            el("label", { class: "btn ghost" }, "Nhập JSON…", el("input", { type: "file", accept: ".json,application/json", hidden: true, onchange: importJson })))),
+        el("div", { class: "card" }, el("h3", {}, "Khôi phục"),
+          el("p", {}, D.custom.length ? `Đang có ${D.custom.length} mục đã chỉnh trên trình duyệt này: ${D.custom.map(k => SCHEMA[k].title).join(", ")}.` : DSC.isOnline() ? "Đưa toàn bộ danh mục của cả team về data.js." : "Đang dùng toàn bộ bản gốc từ data.js."),
+          el("button", { type: "button", class: "btn ghost danger", disabled: !(D.custom.length || D.shared.length) || null, onclick: async () => {
+            if (!confirm(DSC.isOnline() ? "Đưa TOÀN BỘ danh mục của cả team về data.js?" : "Bỏ mọi chỉnh sửa, quay về data.js?")) return;
+            await DSC.resetCollection(); D = DSC.loadData(); render(); } }, "Về bản gốc toàn bộ"))));
+  }
+  function importJson(e) {
+    const f = e.target.files[0]; if (!f) return;
+    f.text().then(async t => {
+      let o; try { o = JSON.parse(t); } catch (err) { toast("File không đúng định dạng JSON."); return; }
+      const keys = DSC.COLLECTIONS.filter(k => Array.isArray(o[k]));
+      if (DSC.isOnline() && !confirm(`Ghi đè ${keys.length} mục danh mục cho CẢ TEAM bằng file này?`)) return;
+      const res = await Promise.all(keys.map(k => DSC.saveCollection(k, o[k])));
+      D = DSC.loadData(); render(); toast(`Đã nhập ${res.filter(Boolean).length}/${keys.length} mục.`);
+    });
+  }
+
+  // ===== Supabase: status + one-time upload of this browser's catalog and link history =====
+  function renderShared() {
+    const st = DSC.state.mode;
+    const box = el("div", { class: "io" });
+    box.append(el("div", { class: "card" }, el("h3", {}, "Trạng thái"),
+      el("p", {}, st === "online" ? `Đã kết nối. ${D.shared.length}/${DSC.COLLECTIONS.length} mục danh mục đang dùng chung.`
+        : st === "cache" ? `Mất kết nối (${DSC.state.error}). Đang dùng bản tải lần trước.` : `Không kết nối được (${DSC.state.error || "chưa rõ lỗi"}). Kiểm tra assets/config.js.`),
+      D.shared.length < DSC.COLLECTIONS.length && st === "online"
+        ? el("p", {}, "Mục chưa có trên Supabase vẫn dùng data.js; lưu một lần ở Danh mục hoặc bấm “Đưa lên” để chia sẻ.") : null));
+    const local = DSC.localOverrides(), nLocal = Object.keys(local).length;
+    const hist = DSC.loadHist();
+    let shortN = 0; try { shortN = Object.keys(JSON.parse(localStorage.getItem("dsc_utm_short_v1") || "{}")).length; } catch (e) {}
+    box.append(el("div", { class: "card" }, el("h3", {}, "Đưa dữ liệu trình duyệt này lên"),
+      el("p", {}, `Danh mục: data.js${nLocal ? ` + ${nLocal} mục đã chỉnh trên trình duyệt này` : ""}. Lịch sử: ${hist.length} link, ${shortN} link rút gọn. Làm một lần khi bắt đầu dùng Supabase.`),
+      el("button", { type: "button", class: "btn", disabled: st !== "online" || null, onclick: uploadAll }, "Đưa lên Supabase")));
+    return box;
+  }
+  async function uploadAll(e) {
+    const btn = e.currentTarget;
+    if (D.shared.length && !confirm(`Supabase đã có ${D.shared.length} mục danh mục. Ghi đè bằng bản trên trình duyệt này? (Bản cũ vẫn khôi phục được trong lịch sử Supabase.)`)) return;
+    btn.disabled = true; btn.textContent = "Đang đưa lên…";
+    const L = DSC.loadData({ local: true });
+    const res = await Promise.all(DSC.COLLECTIONS.map(k => DSC.saveCollection(k, L[k] || [])));
+    let shorts = {}; try { shorts = JSON.parse(localStorage.getItem("dsc_utm_short_v1") || "{}"); } catch (err) {}
+    const items = new Map();
+    DSC.loadHist().forEach(h => items.set(h.url, { url: h.url, label: h.label }));
+    Object.entries(shorts).forEach(([url, short_url]) => items.set(url, Object.assign(items.get(url) || { url }, { short_url })));
+    let n = 0;
+    for (const it of items.values()) { if (await DSC.saveLink(it)) n++; }
+    D = DSC.loadData(); render();
+    toast(`Đã đưa lên ${res.filter(Boolean).length}/${DSC.COLLECTIONS.length} mục danh mục và ${n} link.`, 4000);
+  }
+  document.addEventListener("dsc-save-failed", () => { D = DSC.loadData(); });
+  function toast(t) { const x = el("div", { class: "toast", role: "status" }, t); document.body.append(x); setTimeout(() => x.remove(), 2600); }
+
+  addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+  render();
+});
+</script>
+</body>
+</html>

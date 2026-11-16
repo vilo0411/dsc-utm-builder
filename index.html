@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tạo link · DSC UTM Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="builder" id="builder">
+  <!-- Column A: channel + position -->
+  <section class="col card panel" aria-label="Kênh và vị trí">
+    <div class="tpls" id="tpls" aria-label="Mẫu link nhanh"></div>
+    <div class="step" id="stCh">
+      <h2 class="sh"><span class="num"><span>1</span></span>Đăng ở kênh nào?<span class="sh-acts"><button type="button" class="sh-edit" data-edit="accounts" data-mode="add" aria-label="Thêm kênh">+ Thêm</button><button type="button" class="sh-edit" data-edit="accounts" data-mode="edit" aria-label="Sửa danh sách kênh">Sửa</button></span></h2>
+      <div class="ptabs" id="ptabs" role="group" aria-label="Nền tảng"></div>
+      <div class="accts" id="accts"></div>
+      <div id="otherWrap" class="step" hidden>
+        <input id="chSrcOther" type="text" placeholder="Nền tảng, ví dụ: Threads" aria-label="Nền tảng">
+        <input id="chMedOther" type="text" placeholder="Tài khoản, ví dụ: Threads DSC" aria-label="Tên tài khoản">
+        <p class="hint">Kênh chưa có mã. Báo team MKT thêm vào <a href="danh-muc.html">Danh mục</a> để dùng lâu dài.</p>
+      </div>
+    </div>
+    <div class="step" id="stPos">
+      <h2 class="sh"><span class="num"><span>2</span></span>Link nằm ở chỗ nào?<span class="sh-acts"><button type="button" class="sh-edit" data-edit="positions" data-mode="add" aria-label="Thêm vị trí link">+ Thêm</button><button type="button" class="sh-edit" data-edit="positions" data-mode="edit" aria-label="Sửa danh sách vị trí link">Sửa</button></span></h2>
+      <div class="pchips" id="posChips" role="group" aria-label="Vị trí link"></div>
+      <div id="posMore" hidden></div>
+      <p class="hint" id="posHint"></p>
+    </div>
+  </section>
+
+  <!-- Column B: content, landing, campaign, product -->
+  <form class="col card panel" id="f" autocomplete="off" aria-label="Nội dung link">
+    <div class="step" id="stSlot" hidden>
+      <div class="slotbox" id="slotBox"></div>
+    </div>
+    <div class="step" id="stContent">
+      <h2 class="sh"><span class="num"><span>3</span></span><span id="contentH">Bài này nói về gì?</span><span class="sh-acts"><button type="button" class="sh-edit" data-edit="prefixes" data-mode="add" aria-label="Thêm loại bài">+ Thêm</button><button type="button" class="sh-edit" data-edit="prefixes" data-mode="edit" aria-label="Sửa danh sách loại bài">Sửa</button></span></h2>
+      <div class="pgrid" id="prefixes" role="group" aria-label="Loại nội dung"></div>
+      <input id="title" type="text" placeholder="Tiêu đề ngắn 3–6 từ, ví dụ: VN-Index tuần 47" aria-label="Tiêu đề ngắn">
+      <p class="slugline" id="titleSlug"></p>
+    </div>
+    <div class="step" id="stLanding">
+      <h2 class="sh"><span class="num"><span>4</span></span>Dẫn khách tới trang nào?<span class="sh-acts"><button type="button" class="sh-edit" data-edit="landings" data-mode="add" aria-label="Thêm trang đích">+ Thêm</button><button type="button" class="sh-edit" data-edit="landings" data-mode="edit" aria-label="Sửa danh sách trang đích">Sửa</button></span></h2>
+      <div class="sugg" id="sugg"></div>
+      <select id="preset" aria-label="Trang có sẵn"></select>
+      <input id="landing" type="url" inputmode="url" placeholder="Hoặc dán link trang DSC bất kỳ" aria-label="Link trang đích">
+    </div>
+    <div class="step" id="stCamp">
+      <h2 class="sh"><span class="num"><span>5</span></span>Chiến dịch<span class="opt">Có thể bỏ qua</span><span class="sh-acts"><button type="button" class="sh-edit" data-edit="campaigns" data-mode="add" aria-label="Thêm chiến dịch">+ Thêm</button><button type="button" class="sh-edit" data-edit="campaigns" data-mode="edit" aria-label="Sửa danh sách chiến dịch">Sửa</button></span></h2>
+      <input id="campaign" type="text" placeholder="Ví dụ: Mở tài khoản tháng 11" list="campList" aria-label="Tên chiến dịch">
+      <datalist id="campList"></datalist>
+      <p class="slugline" id="campaignSlug"></p>
+      <label class="check"><input type="checkbox" id="noCampaign"> Bài lẻ, không thuộc chiến dịch nào</label>
+    </div>
+    <div class="step" id="stProd">
+      <h2 class="sh"><span class="num"><span>6</span></span>Sản phẩm được nhắc tới<span class="sh-acts"><button type="button" class="sh-edit" data-edit="products" data-mode="add" aria-label="Thêm sản phẩm">+ Thêm</button><button type="button" class="sh-edit" data-edit="products" data-mode="edit" aria-label="Sửa danh sách sản phẩm">Sửa</button></span></h2>
+      <div class="row2">
+        <select id="product" aria-label="Sản phẩm"></select>
+        <input id="productOther" type="text" placeholder="Tên sản phẩm" aria-label="Sản phẩm khác" hidden>
+      </div>
+    </div>
+  </form>
+
+  <!-- Column C: where the link goes -->
+  <section class="col mockcol" aria-label="Vị trí link trên nền tảng">
+    <div class="mock-h" id="mockH">Link sẽ nằm ở đây</div>
+    <div class="phone"><div class="phone-scr" id="phone"></div></div>
+    <p class="mock-cap" id="mockCap"></p>
+  </section>
+
+  <!-- Column D: output -->
+  <aside class="col card out" aria-live="polite">
+    <h2>Link của bạn</h2>
+    <div class="url pending" id="url"></div>
+    <ul class="todo" id="todo"></ul>
+    <div class="actions">
+      <button type="button" class="btn ch" id="copy">Copy link</button>
+      <button type="button" class="btn ghost" id="shorten">Rút gọn</button>
+      <button type="button" class="btn ghost" id="saveTpl" title="Lưu kênh, vị trí, loại bài, trang đích, chiến dịch, sản phẩm thành mẫu. Lần sau bấm mẫu, chỉ cần gõ tiêu đề.">Lưu mẫu</button>
+      <button type="button" class="btn ghost" id="reset" title="Làm lại từ đầu">↺</button>
+    </div>
+    <div class="short" id="short" hidden></div>
+    <div class="story" id="story" hidden></div>
+    <details class="mini" open>
+      <summary>Mã kỹ thuật (cho người làm báo cáo)</summary>
+      <table class="params" id="params"></table>
+    </details>
+    <details class="mini" id="histWrap">
+      <summary>Link bạn vừa tạo (<span id="histN">0</span>)</summary>
+      <ol class="hist" id="hist"></ol>
+      <p class="hist-more" id="histMore" hidden><a href="thu-vien.html">Xem tất cả link của team trong Kho link →</a></p>
+    </details>
+  </aside>
+</main>
+
+<script src="assets/data.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/common.js"></script>
+<script src="assets/mockups.js"></script>
+<script src="assets/quick-edit.js"></script>
+<script>
+// Wait for the shared catalog (Supabase) before reading it
+DSC.ready().then(function () {
+  "use strict";
+  const { $, el, icon, slug, makeUrl, displayUrl, PLATFORMS, PLATFORM_ORDER, POS, posLabel } = DSC;
+  DSC.renderNav("build");
+  let D = DSC.loadData();
+
+  // How-to caption under the mockup, per platform + position
+  const HOW = {
+    "facebook|": "Dán link vào nội dung bài. Facebook tự tạo khung xem trước.",
+    "facebook|cmt": "Đăng bài xong, bình luận link bằng tên Trang rồi ghim bình luận.",
+    "facebook|story": "Tạo tin → Nhãn dán → Liên kết → dán link.",
+    "youtube|description": "YouTube Studio → Nội dung → Chi tiết video → Mô tả.",
+    "youtube|cmt": "Bình luận link dưới video bằng tài khoản kênh → ⋮ → Ghim.",
+    "tiktok|": "Dán link vào cuối caption khi đăng video. Link không bấm được nên dùng link rút gọn.",
+    "tiktok|cmt": "Đăng video xong, bình luận link bằng tài khoản kênh → giữ bình luận → Ghim.",
+    "zalo|": "Dán link vào tin nhắn hoặc bài viết gửi khách.",
+    "ads|": "Dán vào ô URL đích khi tạo mẫu quảng cáo, không dán vào nội dung.",
+    "other|": "Dán link vào nơi đăng bài."
+  };
+
+  let plat = "", acct = -1, position = "", prefix = "";
+  let posEdit = false;   // step 2 "Sửa": edit the positions of the selected account in place
+  const cur = () => acct >= 0 ? D.accounts[acct] : null;
+  const isOther = () => plat === "other";
+
+  // ===== Catalog-driven fills (re-run after the catalog is edited) =====
+  function fillCatalog() {
+    $("ptabs").innerHTML = "";
+    PLATFORM_ORDER.forEach(p => {
+      const P = PLATFORMS[p];
+      const n = D.accounts.filter(a => a.p === p).length;
+      $("ptabs").append(el("button", { type: "button", class: "ptab", "data-p": p, style: { "--c": P.color }, title: P.desc,
+        onclick: () => pickPlatform(p) }, icon(p), el("b", {}, P.name), p !== "other" ? el("span", { class: "cnt" }, n) : null));
+    });
+    $("prefixes").innerHTML = "";
+    D.prefixes.forEach(x => $("prefixes").append(el("button", { type: "button", class: "pchip", "data-v": x.code, title: x.help,
+      onclick: () => { prefix = prefix === x.code ? "" : x.code; build(); } }, x.label, el("small", {}, x.help))));
+    if (prefix && !D.prefixes.some(x => x.code === prefix)) prefix = "";
+
+    // Selects keep their current value when it still exists
+    const ps = $("preset"), psVal = ps.value; ps.innerHTML = "";
+    ps.append(el("option", { value: "" }, "Chọn trang có sẵn…"));
+    const bySite = {};
+    DSC.activeLandings(D).forEach(l => (bySite[l.site] = bySite[l.site] || []).push(l));
+    Object.entries(bySite).forEach(([site, list]) => ps.append(el("optgroup", { label: site }, list.map(l => el("option", { value: l.id }, DSC.landingLabel(l))))));
+    ps.value = psVal; if (ps.value !== psVal) ps.value = "";
+    const pr = $("product"), prVal = pr.value; pr.innerHTML = "";
+    pr.append(el("option", { value: "" }, "Chọn sản phẩm…"), el("option", { value: "__none" }, "Không nói về sản phẩm cụ thể"), el("option", { value: "__other" }, "Sản phẩm khác (tự gõ)"));
+    const byGrp = {};
+    D.products.forEach(p => (byGrp[p.group || "Khác"] = byGrp[p.group || "Khác"] || []).push(p));
+    Object.entries(byGrp).forEach(([g, list]) => pr.append(el("optgroup", { label: g }, list.map(p => el("option", { value: p.code }, p.name)))));
+    pr.value = prVal; if (pr.value !== prVal) pr.value = "";
+    $("campList").innerHTML = "";
+    D.campaigns.forEach(c => $("campList").append(el("option", { value: c.name })));
+  }
+  fillCatalog();
+
+  // "+ Thêm" / "Sửa" next to each step open the catalog editor; a newly added item is selected right away
+  document.querySelectorAll("[data-edit]").forEach(b => b.addEventListener("click", () => {
+    const key = b.dataset.edit;
+    if (key === "positions" && b.dataset.mode === "edit" && cur() && !cur().paid) { posEdit = !posEdit; render(); return; }
+    openCatalog(key, b.dataset.mode);
+  }));
+  function openCatalog(key, mode) {
+    const keep = cur() ? `${cur().s}|${cur().m}` : "";
+    DSC.QuickEdit.open(key, D, { platform: plat, account: cur(), mode, onSave: res => {
+      D = DSC.loadData();
+      acct = keep ? D.accounts.findIndex(a => `${a.s}|${a.m}` === keep) : -1;
+      const add = res && res.added;
+      if (add && key === "accounts") { plat = add.p; acct = D.accounts.findIndex(a => a.s === add.s && a.m === add.m); position = cur() && cur().pos ? cur().pos[0] : ""; }
+      if (cur() && cur().p !== plat) acct = -1;
+      if (add && key === "positions" && cur() && (cur().pos || []).includes(add.code)) position = add.code;
+      if (cur() && cur().pos && !cur().pos.includes(position)) position = cur().pos[0];
+      if (add && key === "prefixes") prefix = add.code;
+      fillCatalog();
+      if (add && key === "landings") { $("preset").value = add.id; applyPreset(); }
+      if (add && key === "campaigns") { $("campaign").value = add.name; $("noCampaign").checked = false; }
+      if (add && key === "products") { $("product").value = add.code; }
+      render();
+    } });
+  }
+
+  // ===== Channel =====
+  function setTheme() {
+    const P = PLATFORMS[plat] || { color: "#272d2b", tint: "#eafff4" };
+    const b = document.body.style;
+    b.setProperty("--ch", P.color); b.setProperty("--ch-tint", P.tint);
+  }
+  function pickPlatform(p) {
+    plat = p; posEdit = false;
+    const list = D.accounts.map((a, i) => [a, i]).filter(([a]) => a.p === p);
+    acct = list.length === 1 ? list[0][1] : -1;
+    if (cur() && cur().p !== p) acct = -1;
+    position = cur() && cur().pos ? cur().pos[0] : "";
+    render();
+  }
+  function pickAccount(i) {
+    acct = i; posEdit = false;
+    const a = cur();
+    if (!a.pos || !a.pos.includes(position)) position = a.pos ? a.pos[0] : "";
+    render();
+  }
+
+  // Turn on a link position for one account (saved in the catalog, like editing it in Danh mục)
+  function enablePosition(a, code) {
+    const rows = DSC.clone(D.accounts), r = rows.find(x => x.s === a.s && x.m === a.m);
+    if (!r) return;
+    const want = new Set([...(r.pos && r.pos.length ? r.pos : [""]), code]);
+    r.pos = D.positions.map(x => x.code || "").filter(c => want.has(c));
+    DSC.saveCollection("accounts", rows);
+    D = DSC.loadData();
+    acct = D.accounts.findIndex(x => x.s === a.s && x.m === a.m);
+    position = code;
+    render();
+  }
+
+  // Turn a link position off for one account; the position stays in the catalog and can be turned on again
+  function disablePosition(a, code) {
+    const rows = DSC.clone(D.accounts), r = rows.find(x => x.s === a.s && x.m === a.m);
+    if (!r) return;
+    const name = posLabel(code, a.p);
+    if (D.slots.some(s => s.m === a.m && s.pos === code) &&
+      !confirm(`Kênh ${a.name} đang có link cố định ở “${name}” trong Kế hoạch. Vẫn tắt vị trí này?`)) return;
+    r.pos = (r.pos && r.pos.length ? r.pos : [""]).filter(c => c !== code);
+    DSC.saveCollection("accounts", rows);
+    D = DSC.loadData();
+    acct = D.accounts.findIndex(x => x.s === a.s && x.m === a.m);
+    toast(`Đã tắt “${name}” cho kênh ${a.name}.`);
+    render();
+  }
+  const toast = DSC.toast;
+
+  function render() {
+    setTheme();
+    document.querySelectorAll(".ptab").forEach(t => t.setAttribute("aria-pressed", String(t.dataset.p === plat)));
+    const box = $("accts"); box.innerHTML = "";
+    if (!plat) box.append(el("div", { class: "empty-pick" }, "Chọn nền tảng ở trên để xem các tài khoản."));
+    else if (!isOther()) D.accounts.forEach((a, i) => {
+      if (a.p !== plat) return;
+      box.append(el("button", { type: "button", class: "acct-btn", "aria-pressed": String(i === acct), onclick: () => pickAccount(i) },
+        el("b", {}, a.name), el("small", {}, el("code", {}, a.paid ? a.s : a.m), a.sub ? ` · ${a.sub}` : a.owner ? ` · ${a.owner}` : "")));
+    });
+    $("otherWrap").hidden = !isOther();
+
+    // Positions allowed for this account
+    const a = cur();
+    // Step 2 is always visible so the numbering never skips; it explains itself when there is nothing to pick
+    const showPos = !!a && !a.paid;
+    // Codes that duplicate another position on this platform (e.g. TikTok "Mô tả video" = caption) are not offered
+    const ownPos = showPos ? (a.pos && a.pos.length ? a.pos : [""]).filter(c => DSC.posAllowed(c, a.p)) : [];
+    const allowed = showPos && !ownPos.length ? [""] : ownPos;
+    if (showPos && !allowed.includes(position)) position = allowed[0];
+    if (!showPos) posEdit = false;
+    const editBtn = document.querySelector('[data-edit="positions"][data-mode="edit"]');
+    editBtn.textContent = posEdit ? "Xong" : "Sửa";
+    editBtn.setAttribute("aria-pressed", String(posEdit));
+    editBtn.setAttribute("aria-label", posEdit ? "Xong sửa vị trí" : showPos ? `Sửa vị trí của kênh ${a.name}` : "Sửa danh sách vị trí link");
+    const pc = $("posChips"); pc.innerHTML = ""; pc.hidden = !showPos;
+    pc.classList.toggle("editing", posEdit);
+    allowed.forEach(p => pc.append(posEdit
+      ? el("span", { class: "pchip on" }, posLabel(p, a.p),
+          el("button", { type: "button", class: "pchip-x", "aria-label": `Tắt ${posLabel(p, a.p)} cho kênh này`,
+            title: allowed.length < 2 ? "Kênh cần ít nhất một vị trí" : "Tắt vị trí này cho kênh", disabled: allowed.length < 2 || null,
+            onclick: () => disablePosition(a, p) }, "✕"))
+      : el("button", { type: "button", class: "pchip", "aria-pressed": String(p === position),
+          onclick: () => { position = p; render(); } }, posLabel(p, a.p))));
+    // Positions this account does not use yet: one click turns it on for the account and selects it
+    const more = $("posMore"); more.innerHTML = "";
+    const extra = showPos ? D.positions.map(x => x.code || "").filter(c => !allowed.includes(c) && DSC.posAllowed(c, a.p)) : [];
+    more.hidden = !extra.length && !posEdit;
+    if (extra.length) more.append(el("details", { class: "pos-more", open: posEdit || null },
+      el("summary", {}, "+ Bật thêm vị trí cho kênh này"),
+      el("div", { class: "pchips" }, extra.map(c => el("button", { type: "button", class: "pchip add", title: (POS[c] || {}).help || "",
+        onclick: () => { enablePosition(a, c); } }, "+ " + posLabel(c, a.p))))));
+    if (posEdit) more.append(el("p", { class: "hint pos-edit-note" },
+      `Bấm ✕ để tắt vị trí cho kênh ${a.name}. Vị trí vẫn còn trong danh mục, bật lại lúc nào cũng được. `,
+      el("button", { type: "button", class: "qe-link", onclick: () => openCatalog("positions", "edit") }, "Đổi tên / mã vị trí")));
+    $("posHint").textContent = !showPos
+      ? (a && a.paid ? "Quảng cáo không cần chọn vị trí: link dán vào ô URL đích của mẫu quảng cáo."
+        : isOther() ? "Kênh khác: dán link vào nội dung bài đăng."
+        : "Chọn tài khoản ở bước 1 để xem các vị trí đặt link.")
+      : a.p === "tiktok" && position !== "bio"
+        ? "Link trong caption hoặc bình luận TikTok không bấm được, người xem phải tự copy. Nên bấm Rút gọn để link ngắn, dễ gõ."
+        : (POS[position] || {}).help || "";
+    build();
+  }
+
+  // ===== Main build =====
+  function suggestions(a) {
+    const ids = [];
+    if (prefix) D.routes.filter(r => r.prefix === prefix).forEach(r => ids.push(r.to));
+    if (a) D.slots.filter(s => s.m === a.m).forEach(s => ids.push(s.to));
+    return [...new Set(ids)].map(id => DSC.landing(D, id)).filter(l => l && l.state !== "off").slice(0, 5);
+  }
+
+  function build() {
+    const a = cur();
+    const isPaid = !!a && !!a.paid;
+    const fixedSlot = position === "bio" || position === "menu";
+    const todo = [], warns = [];
+    // Checklist shown under the link: every item stays visible and lights up when done.
+    // soft = shown but does not block the link (it is decided by another step).
+    const checks = [];
+    const chk = (ok, todoText, doneText, soft) => { checks.push({ ok, text: ok ? doneText : todoText }); if (!ok && !soft) todo.push(todoText); };
+
+    // Channel
+    let source = "", medium = "";
+    if (isOther()) { source = slug($("chSrcOther").value); medium = slug($("chMedOther").value); }
+    else if (a) { source = a.s; medium = a.m; }
+    chk(!!source && !!medium,
+      !plat ? "Chọn nền tảng đăng link." : isOther() ? "Điền nền tảng và tên tài khoản của kênh khác." : "Chọn tài khoản sẽ đăng.",
+      "Kênh: " + (isOther() ? `${$("chSrcOther").value.trim()} · ${$("chMedOther").value.trim()}` : a ? DSC.accountName(a) : ""));
+    if (a && a.pos && a.pos.length) chk(true, "", "Vị trí: " + posLabel(position, a.p));
+    else if (!a && !isOther()) chk(false, "Chọn vị trí đặt link.", "", true);
+    $("stCh").dataset.done = String(!!source && !!medium);
+    $("stPos").dataset.done = String(!!source && !!medium);
+
+    // Fixed slots: show the planned links of this account
+    const planned = a && fixedSlot ? D.slots.filter(s => s.m === a.m && s.pos === position) : [];
+    $("stSlot").hidden = !fixedSlot || !a;
+    const sb = $("slotBox"); sb.innerHTML = "";
+    if (fixedSlot && a) {
+      sb.append(el("p", {}, el("b", {}, planned.length ? "Link cố định đã có trong kế hoạch:" : "Chưa có link cố định cho vị trí này."),
+        " ", el("a", { href: "ke-hoach.html" }, "Xem kế hoạch")));
+      planned.forEach(s => {
+        const u = DSC.slotUrl(D, s), l = DSC.landing(D, s.to);
+        sb.append(el("div", { class: "slotline" },
+          el("div", {}, el("b", {}, s.where), " → ", l ? l.label : s.to, el("small", {}, u)),
+          el("button", { type: "button", class: "btn sm ch", onclick: e => { DSC.copyText(u, e.currentTarget); DSC.remember(u, `${DSC.accountName(a)} · ${s.where}`, DSC.slotMeta(D, s)); } }, "Copy")));
+      });
+      if (planned.length) sb.append(el("p", { class: "hint" }, "Muốn trỏ về trang khác? Chọn trang đích bên dưới, link sẽ hiện ở cột bên phải."));
+    }
+
+    // Content
+    $("stContent").hidden = fixedSlot;
+    $("prefixes").hidden = isPaid;
+    $("contentH").textContent = isPaid ? "Tên mẫu quảng cáo" : "Bài này nói về gì?";
+    $("title").placeholder = isPaid ? "Tên mẫu quảng cáo, ví dụ: Miễn phí giao dịch 3 tháng" : "Tiêu đề ngắn 3–6 từ, ví dụ: VN-Index tuần 47";
+    document.querySelectorAll("#prefixes .pchip").forEach(t => t.setAttribute("aria-pressed", String(t.dataset.v === prefix)));
+    const t = slug($("title").value);
+    $("titleSlug").textContent = t;
+    let content = "";
+    const prefixOk = isPaid || !!prefix || !!(a && a.prefixOptional);
+    if (fixedSlot) content = position;
+    else {
+      if (!isPaid && !(a && a.prefixOptional)) chk(!!prefix, "Chọn loại bài.", "Loại bài: " + ((D.prefixes.find(x => x.code === prefix) || {}).label || prefix));
+      chk(!!t, isPaid ? "Gõ tên mẫu quảng cáo." : "Gõ tiêu đề ngắn của bài.", (isPaid ? "Mẫu quảng cáo: " : "Tiêu đề: ") + $("title").value.trim());
+      if (t && t.split("_").length > 6) warns.push("Tiêu đề hơi dài. Nên rút còn 3–6 từ.");
+      content = [position, isPaid ? "" : prefix, t].filter(Boolean).join("_");
+    }
+    $("stContent").dataset.done = String(!!t && prefixOk);
+
+    // Landing page + suggestions from the plan
+    const sg = $("sugg"); sg.innerHTML = "";
+    const sl = suggestions(a);
+    if (sl.length) {
+      sg.append(el("span", {}, "Gợi ý:"));
+      sl.forEach(l => sg.append(el("button", { type: "button", class: "chip", "aria-pressed": String($("preset").value === l.id),
+        onclick: () => { $("preset").value = l.id; applyPreset(); } }, DSC.landingLabel(l))));
+    }
+    let base = $("landing").value.trim(), u = null;
+    if (base && !/^https?:\/\//i.test(base)) base = "https://" + base;
+    if (base) { try { u = new URL(base); } catch (e) { u = null; } }
+    const presetL = DSC.landing(D, $("preset").value);
+    chk(!!u, !base ? "Chọn hoặc dán trang đích." : "Link trang đích chưa đúng, kiểm tra lại.",
+      "Trang đích: " + (presetL ? DSC.landingLabel(presetL) : u ? displayUrl(u.href) : ""));
+    if (!u) { /* reported by the checklist */ }
+    else if (/hvsvn\.com$/i.test(u.hostname)) warns.push("Tài Chính Số phải dùng domain taichinhso.dsc.com.vn, không dùng hvsvn.com.");
+    else if (!D.hosts.some(h => h.host === u.hostname.toLowerCase())) warns.push("Trang này không thuộc website DSC. Kiểm tra lại link.");
+    if (presetL && presetL.state === "tam") warns.push(`Trang tạm: ${presetL.note || "sẽ tắt trong thời gian tới"}`);
+    $("stLanding").dataset.done = String(!!u);
+
+    // Campaign (fixed slots are evergreen)
+    $("stCamp").hidden = fixedSlot;
+    const noCamp = $("noCampaign").checked;
+    $("campaign").disabled = noCamp;
+    const campaign = fixedSlot || noCamp ? "" : slug($("campaign").value);
+    $("campaignSlug").textContent = campaign;
+    if (!fixedSlot) chk(noCamp || !!campaign, "Gõ tên chiến dịch, hoặc tích “Bài lẻ”.", noCamp ? "Chiến dịch: bài lẻ" : "Chiến dịch: " + $("campaign").value.trim());
+    $("stCamp").dataset.done = String(noCamp || !!campaign);
+
+    // Product
+    const pv = $("product").value;
+    $("productOther").hidden = pv !== "__other";
+    const product = pv === "__none" ? "" : pv === "__other" ? slug($("productOther").value) : pv;
+    chk(!!pv && (pv !== "__other" || !!product), !pv ? "Chọn sản phẩm (hoặc “Không nói về sản phẩm cụ thể”)." : "Gõ tên sản phẩm.",
+      pv === "__none" ? "Sản phẩm: không nhắc sản phẩm cụ thể" : "Sản phẩm: " + (pv === "__other" ? $("productOther").value.trim() : DSC.productName(D, product)));
+    $("stProd").dataset.done = String(!!pv && (pv !== "__other" || !!product));
+
+    // Output
+    const pairs = [["utm_source", source, "source", "Nền tảng"], ["utm_medium", medium, "medium", "Tài khoản / hình thức"],
+      ["utm_campaign", campaign, "campaign", "Chiến dịch"], ["utm_content", content, "content", "Bài / vị trí"], ["utm_product", product, "product", "Sản phẩm"]];
+    const complete = todo.length === 0;
+    const box = $("url"); box.innerHTML = "";
+    box.classList.toggle("pending", !complete);
+    let full = "";
+    if (complete) {
+      full = makeUrl(u, pairs);
+      const qi = full.indexOf("?");
+      box.append(qi < 0 ? full : full.slice(0, qi));
+      if (qi >= 0) full.slice(qi + 1).split("&").forEach((kv, i) => {
+        const k = kv.split("=")[0], v = kv.slice(k.length + 1);
+        const p = pairs.find(x => x[0] === k);
+        box.append((i ? "&" : "?") + k + "=");
+        box.append(p ? el("span", { class: "v k-" + p[2] }, decodeURIComponent(v)) : v);
+      });
+    } else box.textContent = `Còn ${todo.length} bước. Làm xong, link sẽ hiện ở đây.`;
+    const list = $("todo"); list.innerHTML = "";
+    checks.forEach(c => list.append(el("li", { class: c.ok ? "done" : "" }, c.text)));
+    warns.forEach(x => list.append(el("li", { class: "warn" }, x)));
+
+    const story = $("story"); story.innerHTML = ""; story.hidden = !complete;
+    if (complete) {
+      const chTxt = isOther() ? `${$("chSrcOther").value} · ${$("chMedOther").value}` : DSC.accountName(a);
+      story.append(el("p", {}, "Báo cáo GA4 sẽ ghi nhận:"), el("ul", {},
+        el("li", {}, "Đến từ: ", el("b", { class: "k-medium" }, chTxt)),
+        a && a.pos ? el("li", {}, "Vị trí: ", el("b", { class: "k-content" }, posLabel(position, a.p))) : null,
+        !fixedSlot ? el("li", {}, isPaid ? "Mẫu QC: " : "Bài: ", el("b", { class: "k-content" }, $("title").value.trim())) : null,
+        campaign ? el("li", {}, "Chiến dịch: ", el("b", { class: "k-campaign" }, $("campaign").value.trim())) : null,
+        product ? el("li", {}, "Quan tâm: ", el("b", { class: "k-product" }, DSC.productName(D, product))) : null));
+    }
+    const tb = $("params"); tb.innerHTML = "";
+    pairs.forEach(([k, v, cls, what]) => tb.append(el("tr", {}, el("td", { class: "k-" + cls }, k, el("div", { class: "hint" }, what)),
+      el("td", v ? {} : { class: "empty" }, v || "—"))));
+
+    $("copy").disabled = !complete;
+    $("shorten").disabled = !complete;
+    if (state.full !== full) { state.full = full; showShort(DSC.cachedShort(full)); }
+    state.label = a ? `${DSC.accountName(a)} · ${fixedSlot ? posLabel(position, a.p) : $("title").value.trim()}` : `${$("chSrcOther").value} · ${$("title").value.trim()}`;
+    state.meta = complete ? { kind: fixedSlot ? "fixed" : "post", source, medium, campaign: campaign || null, content, product: product || null,
+      account_m: a ? a.m : null, position: position || null, landing_id: $("preset").value || null,
+      title: fixedSlot && a ? posLabel(position, a.p) : $("title").value.trim(), fields: Object.assign(collectFields(), { title: $("title").value.trim() }) } : null;
+    // A template needs at least the channel and the landing page
+    $("saveTpl").disabled = !(source && medium && u);
+
+    renderMock(a, u, fixedSlot ? planned : []);
+  }
+  const state = { full: "", label: "", meta: null };
+
+  // ===== Mockup =====
+  function renderMock(a, u, planned) {
+    const P = PLATFORMS[plat];
+    $("mockH").innerHTML = "";
+    if (!plat) {
+      $("mockH").append("Link sẽ nằm ở đây");
+      $("phone").innerHTML = '<div class="phone-empty">Chọn kênh và vị trí, hình minh họa sẽ chỉ đúng chỗ dán link.</div>';
+      $("mockCap").textContent = "";
+      return;
+    }
+    $("mockH").append(icon(plat), `${P.name} · ${a && a.pos ? posLabel(position, a.p) : a && a.paid ? "Mẫu quảng cáo" : "Link"}`);
+    const short = DSC.cachedShort(state.full);
+    const shown = short ? short.replace(/^https?:\/\//, "") : u ? displayUrl(u.href) : planned[0] ? displayUrl((DSC.landing(D, planned[0].to) || {}).url) : "dsc.com.vn/…";
+    $("phone").innerHTML = Mockup.render(plat, position, {
+      name: a ? a.name : $("chMedOther").value || "Kênh khác", url: shown,
+      where: planned[0] ? planned[0].where : "", source: a ? a.s : "", handle: a && a.sub && a.sub.startsWith("@") ? a.sub.slice(1) : ""
+    });
+    const how = planned[0] ? planned[0].how : HOW[`${plat}|${a && a.paid ? "" : position}`] || HOW[`${plat}|`] || "";
+    $("mockCap").innerHTML = "";
+    $("mockCap").append(el("b", {}, "Cách đặt: "), how);
+  }
+
+  // ===== Shortener =====
+  function showShort(short, err) {
+    const b = $("short"); b.innerHTML = ""; b.className = "short";
+    if (err) {
+      b.classList.add("err"); b.hidden = false;
+      b.append("Không rút gọn được (", err, "). Link dài đã được copy, ",
+        el("a", { href: "https://tinyurl.com/", target: "_blank", rel: "noopener" }, "mở TinyURL ↗"), " rồi dán vào ô Long URL.");
+      return;
+    }
+    b.hidden = !short;
+    if (!short) return;
+    b.append(el("a", { href: short, target: "_blank", rel: "noopener" }, short.replace(/^https?:\/\//, "")),
+      el("button", { type: "button", class: "btn sm ch", onclick: e => DSC.copyText(short, e.currentTarget) }, "Copy"));
+  }
+  $("shorten").addEventListener("click", async e => {
+    if (!state.full) return;
+    const btn = e.currentTarget, long = state.full, label = state.label, meta = state.meta;
+    btn.disabled = true; btn.textContent = "Đang rút gọn…";
+    try {
+      const s = await DSC.shorten(long);
+      DSC.remember(long, label, meta);
+      if (state.full === long) { showShort(s); DSC.copyText(s, $("short").querySelector("button")); build(); }
+    } catch (err) {
+      DSC.copyText(long);
+      if (state.full === long) showShort("", err.message || "lỗi mạng");
+    } finally { btn.textContent = "Rút gọn"; btn.disabled = !state.full; }
+  });
+
+  // ===== Events =====
+  function applyPreset() {
+    const l = DSC.landing(D, $("preset").value); if (!l) return;
+    $("landing").value = l.url;
+    $("product").value = l.product || "__none";
+    build();
+  }
+  $("preset").addEventListener("change", applyPreset);
+  $("landing").addEventListener("input", () => { $("preset").value = ""; });
+  ["landing", "title", "campaign", "noCampaign", "product", "productOther", "chSrcOther", "chMedOther"].forEach(id => {
+    $(id).addEventListener("input", build); $(id).addEventListener("change", build);
+  });
+  $("copy").addEventListener("click", e => {
+    if (!state.full) return;
+    DSC.copyText(state.full, e.currentTarget); DSC.remember(state.full, state.label, state.meta);
+  });
+  $("reset").addEventListener("click", () => {
+    ["preset", "landing", "title", "campaign", "product", "productOther", "chSrcOther", "chMedOther"].forEach(id => $(id).value = "");
+    $("noCampaign").checked = false; plat = ""; acct = -1; position = ""; prefix = ""; render();
+  });
+
+  // ===== Form state <-> fields (shared by quick templates and "Tạo link thay thế" from the library) =====
+  function collectFields() {
+    const a = cur();
+    return { plat, account_s: a ? a.s : "", account_m: a ? a.m : "", position, prefix,
+      landing_id: $("preset").value, landing_url: $("preset").value ? "" : $("landing").value.trim(),
+      campaign: $("campaign").value.trim(), no_campaign: $("noCampaign").checked,
+      product: $("product").value, product_other: $("productOther").value.trim(),
+      other_src: $("chSrcOther").value.trim(), other_med: $("chMedOther").value.trim() };
+  }
+  // Links saved without form fields (old history, fixed links) are rebuilt from their columns
+  function fieldsFromLink(l) {
+    const a = D.accounts.find(x => x.m === l.account_m && (!l.source || x.s === l.source)) || D.accounts.find(x => x.m === l.medium && x.s === l.source);
+    let landingUrl = "";
+    if (!l.landing_id) { try { const u = new URL(l.url); [...u.searchParams.keys()].filter(k => /^utm_/i.test(k)).forEach(k => u.searchParams.delete(k)); landingUrl = u.href; } catch (e) {} }
+    return { plat: a ? a.p : "", account_s: a ? a.s : "", account_m: a ? a.m : "", position: l.position || "", prefix: "",
+      landing_id: l.landing_id || "", landing_url: landingUrl, campaign: l.campaign || "", no_campaign: !l.campaign,
+      product: l.product || "__none", title: l.kind === "fixed" ? "" : (l.title || "") };
+  }
+  function applyFields(f) {
+    if (!f) return;
+    posEdit = false;
+    acct = f.account_m ? D.accounts.findIndex(a => a.m === f.account_m && (!f.account_s || a.s === f.account_s)) : -1;
+    plat = cur() ? cur().p : (f.plat && PLATFORMS[f.plat] ? f.plat : "");
+    position = cur() && cur().pos ? (cur().pos.includes(f.position || "") ? f.position || "" : cur().pos[0]) : (f.position || "");
+    prefix = f.prefix && D.prefixes.some(x => x.code === f.prefix) ? f.prefix : "";
+    $("chSrcOther").value = f.other_src || ""; $("chMedOther").value = f.other_med || "";
+    // A page that was switched off is left empty so a live page gets picked
+    const l = f.landing_id ? DSC.landing(D, f.landing_id) : null;
+    if (l && l.state !== "off") { $("preset").value = l.id; $("landing").value = l.url; }
+    else { $("preset").value = ""; $("landing").value = l ? "" : (f.landing_url || ""); }
+    $("campaign").value = f.campaign || ""; $("noCampaign").checked = !!f.no_campaign;
+    const pv = f.product || "";
+    $("product").value = pv;
+    if ($("product").value !== pv) { $("product").value = "__other"; $("productOther").value = pv; }
+    else $("productOther").value = f.product_other || "";
+    if ("title" in f) $("title").value = f.title || "";
+    render();
+  }
+
+  // ===== Quick templates =====
+  let tpls = [], tplEdit = false, tplQ = "";
+  function tplSummary(f) {
+    const a = D.accounts.find(x => x.m === f.account_m && (!f.account_s || x.s === f.account_s));
+    const l = f.landing_id ? DSC.landing(D, f.landing_id) : null;
+    return [a ? DSC.accountName(a) : f.other_src || "", a && !a.paid ? posLabel(f.position, a.p) : "",
+      (D.prefixes.find(x => x.code === f.prefix) || {}).label || "", l ? DSC.landingLabel(l) : f.landing_url ? displayUrl(f.landing_url) : "",
+      f.no_campaign ? "Bài lẻ" : f.campaign || ""].filter(Boolean).join(" · ");
+  }
+  async function loadTpls() {
+    try { tpls = await DSC.listTemplates(); } catch (e) { tpls = []; }
+    renderTpls();
+  }
+  function renderTpls() {
+    const box = $("tpls"); box.innerHTML = "";
+    const q = DSC.slug(tplQ);
+    const list = tpls.filter(t => !q || DSC.slug(t.name + " " + tplSummary(t.fields || {})).includes(q));
+    box.append(el("div", { class: "tpls-h" },
+      el("b", {}, "Mẫu nhanh"), el("small", {}, DSC.isOnline() ? "dùng chung cả team" : "chỉ trên trình duyệt này"),
+      tpls.length ? el("button", { type: "button", class: "sh-edit", "aria-pressed": String(tplEdit), onclick: () => { tplEdit = !tplEdit; renderTpls(); } }, tplEdit ? "Xong" : "Sửa") : null));
+    if (tpls.length > 8) box.append(el("input", { type: "search", class: "tpls-q", placeholder: "Tìm mẫu…", value: tplQ, "aria-label": "Tìm mẫu",
+      oninput: e => { tplQ = e.target.value; renderTpls(); const i = $("tpls").querySelector(".tpls-q"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }));
+    if (!tpls.length) { box.append(el("p", { class: "hint" }, "Chưa có mẫu. Chọn kênh, trang đích… rồi bấm “Lưu mẫu” ở cột bên phải. Lần sau bấm mẫu là điền sẵn hết, chỉ cần gõ tiêu đề.")); return; }
+    const wrap = el("div", { class: "tpl-list" });
+    list.forEach(t => {
+      const f = t.fields || {}, P = PLATFORMS[f.plat] || PLATFORMS.other;
+      wrap.append(el("div", { class: "tpl", style: { "--c": P.color } },
+        el("button", { type: "button", class: "tpl-b", title: tplSummary(f) + (t.created_by ? ` (tạo bởi ${t.created_by})` : ""), onclick: () => pickTpl(t) },
+          icon(f.plat || "other"), el("span", {}, el("b", {}, t.name), el("small", {}, tplSummary(f)))),
+        tplEdit ? el("button", { type: "button", class: "tpl-x", "aria-label": `Xóa mẫu ${t.name}`, onclick: () => removeTpl(t) }, "✕") : null));
+    });
+    if (!list.length) wrap.append(el("p", { class: "hint" }, "Không có mẫu nào khớp."));
+    box.append(wrap);
+  }
+  function pickTpl(t) {
+    applyFields(t.fields);
+    DSC.useTemplate(t);
+    $("title").focus();
+    toast(`Đã điền theo mẫu “${t.name}”. Gõ tiêu đề là có link.`);
+  }
+  async function removeTpl(t) {
+    if (!confirm(`Xóa mẫu “${t.name}”?` + (DSC.isOnline() ? " Cả team sẽ không thấy mẫu này nữa." : ""))) return;
+    try { await DSC.deleteTemplate(t.id); tpls = tpls.filter(x => x.id !== t.id); renderTpls(); }
+    catch (err) { toast("Không xóa được mẫu: " + err.message); }
+  }
+  $("saveTpl").addEventListener("click", async () => {
+    const f = collectFields();
+    const name = (prompt("Tên mẫu (ngắn, dễ nhận ra):", tplSummary(f).split(" · ").slice(0, 3).join(" · ")) || "").trim();
+    if (!name) return;
+    try { await DSC.saveTemplate(name, f); toast(`Đã lưu mẫu “${name}”.`); loadTpls(); }
+    catch (err) { toast("Không lưu được mẫu: " + err.message); }
+  });
+  $("f").addEventListener("submit", e => e.preventDefault());
+
+  // ===== History =====
+  function renderHist() {
+    const h = DSC.loadHist(), ol = $("hist"); ol.innerHTML = "";
+    $("histMore").hidden = !DSC.isOnline();
+    $("histN").textContent = h.length;
+    if (!h.length) ol.append(el("li", { class: "hint" }, "Chưa có link nào. Link chỉ lưu trên trình duyệt này."));
+    h.forEach(item => {
+      const s = DSC.cachedShort(item.url);
+      ol.append(el("li", {},
+        el("div", {}, item.label, el("small", { title: item.url }, s ? s.replace(/^https?:\/\//, "") + " · " + item.url : item.url)),
+        el("button", { type: "button", class: "btn ghost sm", onclick: e => DSC.copyText(s || item.url, e.currentTarget) }, s ? "Copy ngắn" : "Copy")));
+    });
+  }
+  document.addEventListener("utm-history", renderHist);
+  renderHist();
+  render();
+  loadTpls();
+
+  // Prefill from the link library (?from=<link id>) or a template (?tpl=<template id>)
+  const qs = new URLSearchParams(location.search);
+  if (qs.get("from")) DSC.getLink(qs.get("from")).then(l => {
+    if (!l) return;
+    applyFields(Object.assign(fieldsFromLink(l), l.fields || {}));
+    const old = l.landing_id ? DSC.landing(D, l.landing_id) : null;
+    toast(old && old.state === "off" ? "Đã điền lại theo link cũ. Trang đích cũ đã tắt, chọn trang mới ở bước 4." : "Đã điền lại theo link trong Kho link. Sửa chỗ cần đổi rồi copy link mới.", 4500);
+  }).catch(() => {});
+  else if (qs.get("tpl")) DSC.listTemplates().then(list => { const t = list.find(x => x.id === qs.get("tpl")); if (t) pickTpl(t); }).catch(() => {});
+  if (qs.has("from") || qs.has("tpl")) history.replaceState(null, "", location.pathname);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kế hoạch dẫn khách · DSC UTM Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="page wide">
+  <div class="page-h">
+    <div>
+      <h1>Kế hoạch dẫn khách về Mở tài khoản DSC</h1>
+      <p>Social và quảng cáo thu hút khách, báo cáo, dịch vụ và khóa học nuôi dưỡng, đích cuối là mở tài khoản DSC. Mỗi mũi tên là các link có UTM, nên đo được trên GA4 ở từng tầng.</p>
+    </div>
+    <a class="btn ghost" href="danh-muc.html#groups">Sửa kế hoạch trong Danh mục</a>
+  </div>
+
+  <div class="ptabs-line" role="tablist" aria-label="Góc nhìn">
+    <button type="button" role="tab" id="tabMap" aria-selected="true">Bản đồ hành trình</button>
+    <button type="button" role="tab" id="tabGuide" aria-selected="false">Hướng dẫn theo kênh</button>
+    <button type="button" role="tab" id="tabFixed" aria-selected="false">Link cố định</button>
+  </div>
+  <ul class="alerts" id="alerts"></ul>
+
+  <!-- ===== Journey map ===== -->
+  <section id="paneMap">
+    <p class="hint jhint">Rê chuột hoặc bấm vào một thẻ để làm nổi đường đi và xem chi tiết bên dưới. Độ dày mũi tên = số tuyến link trong kế hoạch, không phải traffic.</p>
+    <div class="journey" id="journey">
+      <svg class="jlines" id="jlines" aria-hidden="true"></svg>
+      <div class="jcol">
+        <h2 class="jh"><span>1</span>Thu hút<small>Nền tảng social, Zalo, quảng cáo</small></h2>
+        <div class="jstack" id="colChannels"></div>
+      </div>
+      <div class="jcol">
+        <h2 class="jh"><span>2</span>Nuôi dưỡng<small>Trang làm ấm khách trước khi mở tài khoản</small></h2>
+        <div class="jstack" id="colHubs"></div>
+      </div>
+      <div class="jcol">
+        <h2 class="jh"><span>3</span>Chuyển đổi<small>Mục tiêu cuối</small></h2>
+        <div class="jstack goal" id="colGoal"></div>
+      </div>
+      <div class="jcommon-wrap" id="colCommon"></div>
+    </div>
+    <div class="jdetail" id="jdetail" aria-live="polite"></div>
+
+    <div class="sect"><h2>Chiến lược theo kênh</h2><p>Tập trung vào video. Video ngắn, video dài và livestream trên cùng một nền tảng đặt link ở chỗ khác nhau.</p></div>
+    <div class="strat" id="strat"></div>
+
+    <div class="sect"><h2>Funnel chuyển đổi</h2><p>Mỗi bước là một event GA4 đã cài. Tên event sửa ở Danh mục → Bước funnel.</p></div>
+    <div id="funnels"></div>
+
+    <div class="sect"><h2>Đọc kết quả trên GA4</h2><p>UTM trả lời câu hỏi “từ đâu”, event trả lời câu hỏi “đã chuyển đổi chưa”. Số liệu xem ở report riêng.</p></div>
+    <div class="ga4" id="ga4"></div>
+  </section>
+
+  <!-- ===== Per-channel guide for the content team ===== -->
+  <section id="paneGuide" hidden>
+    <div class="guide-bar">
+      <div class="flt" id="guideTabs" role="tablist" aria-label="Chọn kênh"></div>
+      <button type="button" class="btn ghost sm no-print" onclick="window.print()">In / lưu PDF kênh này</button>
+    </div>
+    <div id="guide"></div>
+  </section>
+
+  <!-- ===== Fixed links ===== -->
+  <section id="paneFixed" hidden>
+    <div class="sect" style="margin-top:0"><h2>Link cố định</h2><p>Bio, nút CTA, menu của từng kênh. Copy hoặc rút gọn rồi dán theo “Cách đặt”.</p></div>
+    <div class="flt" id="flt"></div>
+    <div class="slots" id="slots"></div>
+    <div class="sect"><h2>Link theo bài: trang đích theo loại nội dung</h2><p>Trang Tạo link gợi ý theo thứ tự này.</p></div>
+    <div class="routes" id="routes"></div>
+  </section>
+</div>
+
+<script src="assets/data.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/common.js"></script>
+<script src="assets/mockups.js"></script>
+<script>
+// Wait for the shared catalog (Supabase) before reading it
+DSC.ready().then(function () {
+  "use strict";
+  const { $, el, icon, PLATFORMS, PLATFORM_ORDER } = DSC;
+  DSC.renderNav("plan");
+  const D = DSC.loadData();
+  D.hubs = D.hubs || []; D.groups = D.groups || []; D.conversions = D.conversions || []; D.steps = D.steps || [];
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const svg = (tag, attrs) => { const e = document.createElementNS(SVGNS, tag); Object.entries(attrs || {}).forEach(([k, v]) => v != null && e.setAttribute(k, v)); return e; };
+
+  const live = l => l && l.state !== "off";
+  const mainConv = D.conversions.find(c => c.main) || D.conversions[0];
+  const goalLanding = mainConv && mainConv.landing;
+  const chColor = ch => (PLATFORMS[(ch.platforms || [])[0]] || PLATFORMS.other).color;
+  const chPlat = ch => (ch.platforms || [])[0] || "other";
+  const accountsOf = ch => D.accounts.filter(a => (ch.platforms || []).includes(a.p) && !a.inactive);
+  // Where a landing page sits on the map: the goal page, a nurture hub, or nowhere
+  const targetOf = l => l.id === goalLanding ? "direct" : ((D.hubs.find(h => (h.landings || []).includes(l.id)) || {}).id || "");
+  const isCommon = id => !!(D.hubs.find(h => h.id === id) || {}).common;
+  const videoTo = (a, ch) => (a.to && a.to.length ? a.to : ch.landings) || [];
+  const FMT = { short: "Ngắn", long: "Dài", live: "Live", msg: "Tin", ad: "QC" };
+  const formatsOf = ch => (D.formats || []).filter(f => (ch.platforms || []).includes(f.p));
+  const posName = (p, a) => p === "ad" ? "Mẫu quảng cáo" : DSC.posLabel(p, a.p);
+
+  // ===== Every planned link: fixed slots + per-post links (account × position × preferred landing) =====
+  function buildRoutes() {
+    const out = [];
+    D.slots.forEach(s => {
+      const a = DSC.account(D, s.m), l = DSC.landing(D, s.to);
+      if (!a || a.inactive || !live(l)) return;
+      const ch = D.groups.find(g => (g.platforms || []).includes(a.p));
+      if (ch) out.push({ ch, a, pos: s.pos, where: s.where, l, t: targetOf(l), fixed: true });
+    });
+    D.groups.forEach(ch => accountsOf(ch).forEach(a => {
+      const poss = a.paid ? ["ad"] : (a.pos || []).filter(p => p !== "bio" && p !== "menu");
+      poss.forEach(p => videoTo(a, ch).forEach(id => {
+        const l = DSC.landing(D, id);
+        if (live(l)) out.push({ ch, a, pos: p, where: a.mode === "script" ? "Theo kịch bản" : posName(p, a), l, t: targetOf(l), fixed: false, script: a.mode === "script" });
+      }));
+    }));
+    return out.filter(r => r.t);
+  }
+  const R = buildRoutes();
+
+  // ===== Alerts: temporary / switched-off pages still in the plan =====
+  function renderAlerts() {
+    const ul = $("alerts"); ul.innerHTML = "";
+    D.landings.filter(l => l.state === "tam" || l.state === "off").forEach(l => {
+      const slots = D.slots.filter(s => s.to === l.id).map(s => { const a = DSC.account(D, s.m); return a ? `${PLATFORMS[a.p].name} ${a.name}` : s.m; });
+      const routes = [...new Set(D.routes.filter(r => r.to === l.id).map(r => (D.prefixes.find(p => p.code === r.prefix) || {}).label || r.prefix))];
+      const chs = D.groups.filter(g => (g.landings || []).includes(l.id)).map(g => g.name);
+      if (!slots.length && !routes.length && !chs.length) return;
+      const uses = [slots.length ? `link cố định của ${slots.join(", ")}` : "", routes.length ? `gợi ý cho loại bài ${routes.join(", ")}` : "", chs.length ? `kênh ${chs.join(", ")}` : ""].filter(Boolean).join("; ");
+      ul.append(el("li", {}, el("b", {}, l.state === "off" ? "Trang đã tắt: " : "Trang tạm: ", l.label), ` đang được dùng cho ${uses}. `, l.note || "", " ",
+        el("a", { href: "danh-muc.html#slots" }, "Đổi trang đích")));
+    });
+  }
+
+  // ===== Journey map =====
+  let selected = null;            // "ch:<id>" | "hub:<id>" | "direct" | "goal"
+  function renderJourney() {
+    const cc = $("colChannels"); cc.innerHTML = "";
+    D.groups.forEach(ch => {
+      const rs = R.filter(r => r.ch === ch), accts = accountsOf(ch);
+      const where = [...new Set(rs.map(r => r.fixed ? DSC.posLabel(r.pos, r.a.p) : r.where))];
+      cc.append(card("ch:" + ch.id, "jc ch", { "--c": chColor(ch) },
+        el("div", { class: "jc-h" }, el("span", { class: "jc-ico" }, (ch.platforms || []).map(p => el("span", { class: "ico", style: { color: PLATFORMS[p].color }, html: DSC.ICONS[p] }))),
+          el("b", {}, ch.name), el("small", {}, `${accts.length} tài khoản`)),
+        el("div", { class: "fmt" },
+          formatsOf(ch).map(f => el("span", { class: "fchip " + f.fmt, title: f.where }, el("i", {}, FMT[f.fmt] || f.fmt), f.label))),
+        el("div", { class: "jc-where" }, "Link ở: ", where.slice(0, 4).join(" · ") || "—")));
+    });
+
+    const ch2 = $("colHubs"); ch2.innerHTML = "";
+    D.hubs.filter(h => !h.common).forEach(h => {
+      const pages = (h.landings || []).map(id => DSC.landing(D, id)).filter(live);
+      const sub = D.conversions.filter(c => !c.main && c.hub === h.id);
+      ch2.append(card("hub:" + h.id, "jc hub", null,
+        el("div", { class: "jc-h" }, el("b", {}, h.name), el("small", {}, `${R.filter(r => r.t === h.id).length} tuyến`)),
+        el("div", { class: "pages" }, pages.map(l => el("span", { class: "pg" + (l.state === "tam" ? " temp" : "") }, DSC.landingLabel(l)))),
+        sub.length ? el("div", { class: "subconv" }, "Chuyển đổi phụ: ", sub.map(c => c.name).join(", ")) : null,
+        el("div", { class: "next" }, el("b", {}, "→ Mở tài khoản: "), h.next || "chưa có")));
+    });
+    if (R.some(r => r.t === "direct")) {
+      const gl = DSC.landing(D, goalLanding);
+      ch2.append(card("direct", "jc pass", null, el("div", { class: "jc-h" }, el("b", {}, "Đi thẳng"), el("small", {}, `${R.filter(r => r.t === "direct").length} tuyến`)),
+        el("div", { class: "next" }, "Link trỏ thẳng tới trang ", el("b", {}, gl ? gl.label : "Mở tài khoản"), ".")));
+    }
+
+    // Common gateway (Trang chủ): every channel links here, so it is a band without arrows
+    const cc2 = $("colCommon"); cc2.innerHTML = "";
+    D.hubs.filter(h => h.common).forEach(h => {
+      const rs = R.filter(r => r.t === h.id), chs = [...new Set(rs.map(r => r.ch))];
+      cc2.append(card("hub:" + h.id, "jc jcommon", null,
+        el("div", { class: "jcm-l" }, el("small", {}, "Cổng chung của mọi kênh"), el("b", {}, h.name),
+          el("span", { class: "hint" }, "Kênh nào cũng có link về trang chủ (website trên hồ sơ, thông tin trang), nên không vẽ mũi tên.")),
+        el("div", { class: "jcm-m" }, el("span", { class: "g-k" }, "Link cố định đang trỏ về đây"),
+          el("div", { class: "pages" }, chs.length ? chs.map(ch => el("span", { class: "pg" }, ch.name + " · " + rs.filter(r => r.ch === ch).length)) : el("span", { class: "hint" }, "—"))),
+        el("div", { class: "next" }, el("b", {}, "→ Mở tài khoản: "), h.next || "chưa có")));
+    });
+
+    const cg = $("colGoal"); cg.innerHTML = "";
+    if (mainConv) cg.append(card("goal", "jc goalc", null,
+      el("small", {}, "Đích cuối"), el("b", { class: "gname" }, mainConv.name),
+      el("ol", { class: "fmini" }, stepsOf(mainConv).map(s => el("li", { class: s.key ? "key" : "" }, s.step, el("code", {}, s.event || "chưa có event"))))));
+    drawLines();
+    renderDetail();
+  }
+  function card(id, cls, style, ...kids) {
+    const c = el("div", { class: cls + (selected === id ? " sel" : ""), "data-id": id, tabindex: 0, role: "button", style }, kids);
+    c.addEventListener("mouseenter", () => focus(id));
+    c.addEventListener("mouseleave", () => focus(selected));
+    c.addEventListener("focus", () => focus(id));
+    c.addEventListener("click", () => { selected = selected === id ? null : id; renderJourney(); focus(selected); });
+    c.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); c.click(); } });
+    return c;
+  }
+
+  // Lines: channel -> hub / direct, hub -> goal, direct -> goal
+  let LINES = [];
+  function drawLines() {
+    const J = $("journey"), S = $("jlines"), jr = J.getBoundingClientRect();
+    S.innerHTML = ""; S.setAttribute("width", jr.width); S.setAttribute("height", jr.height);
+    const box = id => { const n = J.querySelector(`[data-id="${id}"]`); if (!n) return null; const r = n.getBoundingClientRect(); return { l: r.left - jr.left, r: r.right - jr.left, t: r.top - jr.top, h: r.height }; };
+    const links = [];
+    D.groups.forEach(ch => {
+      const by = {};
+      R.filter(r => r.ch === ch && !isCommon(r.t)).forEach(r => { const k = r.t === "direct" ? "direct" : "hub:" + r.t; by[k] = (by[k] || 0) + 1; });
+      Object.entries(by).forEach(([to, w]) => links.push({ from: "ch:" + ch.id, to, w, color: chColor(ch), ch: ch.id }));
+    });
+    D.hubs.filter(h => !h.common).forEach(h => links.push({ from: "hub:" + h.id, to: "goal", w: Math.max(1, R.filter(r => r.t === h.id).length), color: "#1d4130", hub: h.id }));
+    if (J.querySelector('[data-id="direct"]')) links.push({ from: "direct", to: "goal", w: R.filter(r => r.t === "direct").length, color: "#1d4130", hub: "direct" });
+    const maxW = Math.max(1, ...links.map(x => x.w));
+    // Spread anchors along each card edge so arrows don't stack on one point
+    const outs = {}, ins = {};
+    links.forEach(x => { (outs[x.from] = outs[x.from] || []).push(x); (ins[x.to] = ins[x.to] || []).push(x); });
+    const spread = (list, b, side) => {
+      const order = side === "out" ? list.sort((p, q) => (box(p.to) || {}).t - (box(q.to) || {}).t) : list.sort((p, q) => (box(p.from) || {}).t - (box(q.from) || {}).t);
+      const span = Math.min(b.h - 16, order.length * 12);
+      order.forEach((x, i) => { x[side === "out" ? "y0" : "y1"] = b.t + b.h / 2 - span / 2 + (order.length === 1 ? span / 2 : i * span / (order.length - 1)); });
+    };
+    Object.entries(outs).forEach(([id, list]) => { const b = box(id); if (b) spread(list, b, "out"); });
+    Object.entries(ins).forEach(([id, list]) => { const b = box(id); if (b) spread(list, b, "in"); });
+    // One arrowhead marker per line colour
+    const defs = svg("defs"); S.append(defs);
+    const markerFor = color => {
+      const id = "ar" + color.replace(/[^a-z0-9]/gi, "");
+      if (!defs.querySelector("#" + id)) { const m = svg("marker", { id, viewBox: "0 0 8 8", refX: 6, refY: 4, markerWidth: 10, markerHeight: 10, markerUnits: "userSpaceOnUse", orient: "auto" }); m.append(svg("path", { d: "M0,0L8,4L0,8z", fill: color })); defs.append(m); }
+      return `url(#${id})`;
+    };
+    LINES = links.map(x => {
+      const a = box(x.from), b = box(x.to); if (!a || !b) return null;
+      const x0 = a.r, x1 = b.l - 4, xm = (x0 + x1) / 2;
+      const p = svg("path", { d: `M${x0},${x.y0}C${xm},${x.y0} ${xm},${x.y1} ${x1},${x.y1}`, fill: "none", stroke: x.color,
+        "stroke-width": (1.5 + 6 * Math.sqrt(x.w / maxW)).toFixed(1), "stroke-linecap": "round", class: "jl", "marker-end": markerFor(x.color) });
+      p.dataset.from = x.from; p.dataset.to = x.to;
+      S.append(p); return p;
+    }).filter(Boolean);
+    focus(selected);
+  }
+
+  // Highlight the path through a card: its own arrows plus the arrows that continue to the goal
+  function focus(id) {
+    const J = $("journey");
+    J.classList.toggle("focusing", !!id);
+    const on = new Set([id]);
+    if (id && id.startsWith("ch:")) LINES.filter(p => p.dataset.from === id).forEach(p => on.add(p.dataset.to));
+    if (id && (id.startsWith("hub:") || id === "direct")) LINES.filter(p => p.dataset.to === id).forEach(p => on.add(p.dataset.from));
+    if (id && (id.startsWith("ch:") || id.startsWith("hub:") || id === "direct")) on.add("goal");
+    if (id === "goal") J.querySelectorAll("[data-id]").forEach(n => on.add(n.dataset.id));
+    J.querySelectorAll("[data-id]").forEach(n => n.classList.toggle("lit", on.has(n.dataset.id)));
+    LINES.forEach(p => {
+      const lit = id === "goal" || p.dataset.from === id || p.dataset.to === id ||
+        (id && id.startsWith("ch:") && on.has(p.dataset.from) && p.dataset.to === "goal");
+      p.classList.toggle("lit", !!id && lit);
+    });
+  }
+
+  // ===== Detail band under the map =====
+  function routeTable(rs, cols) {
+    const t = el("table", { class: "rt" }, el("thead", {}, el("tr", {}, cols.map(c => el("th", {}, c[0])))),
+      el("tbody", {}, rs.map(r => el("tr", {}, cols.map(c => el("td", {}, c[1](r)))))));
+    return el("div", { class: "rt-wrap" }, t);
+  }
+  const C_ACC = ["Tài khoản", r => el("span", { class: "badge", style: { "--c": PLATFORMS[r.a.p].color } }, icon(r.a.p), r.a.name)];
+  const C_POS = ["Vị trí link", r => [r.where, r.fixed ? el("span", { class: "tag fix" }, "cố định") : el("span", { class: "tag" }, r.script ? "kịch bản" : "theo video")]];
+  const C_PAGE = ["Trang đích", r => DSC.landingLabel(r.l)];
+  const C_TIER = ["Tầng tiếp theo", r => r.t === "direct" ? "Đi thẳng → Mở tài khoản" : (D.hubs.find(h => h.id === r.t) || {}).name];
+  const C_CH = ["Kênh", r => r.ch.name];
+  function renderDetail() {
+    const box = $("jdetail"); box.innerHTML = "";
+    if (!selected) {
+      box.append(el("div", { class: "jd-empty" },
+        el("div", {}, el("b", {}, R.length), "tuyến link trong kế hoạch"),
+        el("div", {}, el("b", {}, R.filter(r => r.fixed).length), "link cố định (bio, CTA, menu)"),
+        el("div", {}, el("b", {}, R.filter(r => r.t === "direct").length), "tuyến đi thẳng tới Mở tài khoản"),
+        el("p", { class: "hint" }, "Bấm vào một thẻ trên bản đồ để xem từng tuyến: tài khoản nào, đặt link ở đâu, dẫn về trang nào.")));
+      return;
+    }
+    const head = (small, title, ...extra) => el("div", { class: "jd-h" }, el("div", {}, el("small", {}, small), el("h3", {}, title)), extra,
+      el("button", { type: "button", class: "btn ghost sm", onclick: () => { selected = null; renderJourney(); focus(null); } }, "Bỏ chọn"));
+    if (selected.startsWith("ch:")) {
+      const ch = D.groups.find(g => "ch:" + g.id === selected), rs = R.filter(r => r.ch === ch);
+      box.append(head("Kênh · " + (ch.role || ""), ch.name),
+        el("div", { class: "jd-grid" },
+          el("dl", {}, [["Mục tiêu", ch.goal], ...formatsOf(ch).map(f => [f.label, f.where]), ["CTA / vị trí link", ch.cta], ["Chỉ số theo dõi", ch.kpi]]
+            .filter(x => x[1]).map(([t, d]) => [el("dt", {}, t), el("dd", {}, d)])),
+          routeTable(rs.sort((p, q) => q.fixed - p.fixed), [C_ACC, C_POS, C_PAGE, C_TIER])));
+    } else if (selected.startsWith("hub:") || selected === "direct") {
+      const id = selected === "direct" ? "direct" : selected.slice(4);
+      const h = D.hubs.find(x => x.id === id), rs = R.filter(r => r.t === id);
+      box.append(head(selected === "direct" ? "Đi thẳng" : "Nuôi dưỡng", h ? h.name : "Link thẳng tới Mở tài khoản"),
+        el("div", { class: "jd-grid" },
+          el("dl", {}, h ? [["Cách đẩy sang Mở tài khoản", h.next], ["Chỉ số theo dõi", h.kpi]].filter(x => x[1]).map(([t, d]) => [el("dt", {}, t), el("dd", {}, d)]) : []),
+          routeTable(rs.sort((p, q) => q.fixed - p.fixed), [C_CH, C_ACC, C_POS, C_PAGE])));
+    } else {
+      box.append(head("Đích cuối", mainConv.name),
+        el("div", { class: "jd-grid" },
+          el("dl", {}, [["Trang", (DSC.landing(D, goalLanding) || {}).label], ["Khách đến từ", `${R.length} tuyến: ${R.filter(r => r.t === "direct").length} đi thẳng, ${R.filter(r => r.t !== "direct").length} qua tầng nuôi dưỡng`]]
+            .filter(x => x[1]).map(([t, d]) => [el("dt", {}, t), el("dd", {}, d)])),
+          el("div", {}, el("h4", {}, "Funnel + event GA4"), el("ol", { class: "fmini" }, stepsOf(mainConv).map(s => el("li", { class: s.key ? "key" : "" }, s.step, el("code", {}, s.event || "chưa có event")))))));
+    }
+  }
+
+  // ===== Strategy, funnels, GA4 guide =====
+  function stepsOf(c) { return D.steps.filter(s => s.conv === c.id); }
+  function fmtCell(ch, k) {
+    const fs = formatsOf(ch).filter(f => f.fmt === k || (k === "short" && (f.fmt === "msg" || f.fmt === "ad") && !formatsOf(ch).some(x => x.fmt === "short")));
+    return fs.length ? fs.map(f => el("div", {}, el("b", {}, f.label, ": "), f.where)) : null;
+  }
+  function renderStrategy() {
+    const rows = [["Vai trò", ch => ch.role], ["Mục tiêu", ch => ch.goal], ["Video ngắn", ch => fmtCell(ch, "short")], ["Video dài", ch => fmtCell(ch, "long")], ["Livestream", ch => fmtCell(ch, "live")],
+      ["CTA / vị trí link", ch => ch.cta], ["Trang đích mặc định (link theo video)", ch => (ch.landings || []).length ? el("ol", {}, ch.landings.map(id => DSC.landing(D, id)).filter(live).map(l => el("li", {}, DSC.landingLabel(l)))) : "Chỉ link bio"],
+      ["Chỉ số theo dõi", ch => ch.kpi]];
+    $("strat").innerHTML = "";
+    $("strat").append(el("table", { class: "strat-t" },
+      el("thead", {}, el("tr", {}, el("th", {}), D.groups.map(ch => el("th", { style: { "--c": chColor(ch) } },
+        el("div", { class: "gh" }, (ch.platforms || []).map(p => el("span", { class: "ico", style: { color: PLATFORMS[p].color }, html: DSC.ICONS[p] })), ch.name))))),
+      el("tbody", {}, rows.map(([lab, f]) => el("tr", {}, el("th", { scope: "row" }, lab), D.groups.map(ch => el("td", {}, f(ch) || "—")))))));
+  }
+  function renderFunnels() {
+    const box = $("funnels"); box.innerHTML = "";
+    [...D.conversions].sort((a, b) => !!b.main - !!a.main).forEach(c => {
+      const h = D.hubs.find(x => x.id === c.hub);
+      box.append(el("div", { class: "funnel" },
+        el("div", { class: "fn-h" }, el("h3", {}, c.name), el("p", { class: "hint" }, c.main ? "Đích cuối của mọi kênh." : `Chuyển đổi phụ ở tầng nuôi dưỡng${h ? ` (${h.name})` : ""}, sau đó mời mở tài khoản.`)),
+        el("ol", { class: "fn-steps" + (c.main ? "" : " sub") }, stepsOf(c).map((s, i) => el("li", { class: s.key ? "key" : "" },
+          el("small", {}, `Bước ${i + 1}${s.key ? (c.main ? " · đích cuối" : " · chuyển đổi phụ") : ""}`), el("b", {}, s.step), el("code", {}, s.event || "chưa có event"))))));
+    });
+  }
+  function renderGa4() {
+    const box = $("ga4"); box.innerHTML = "";
+    box.append(el("table", { class: "ga4-t" },
+      el("thead", {}, el("tr", {}, el("th", {}, "Câu hỏi"), el("th", {}, "Xem ở GA4"), el("th", {}, "Lấy từ"))),
+      el("tbody", {}, [
+        ["Kênh, tài khoản nào mang khách về?", "Session source / medium", "utm_source, utm_medium"],
+        ["Vị trí link, bài nào hiệu quả?", "Session manual ad content", "utm_content"],
+        ["Chiến dịch nào?", "Session campaign", "utm_campaign"],
+        ["Khách quan tâm sản phẩm gì?", "Custom dimension utm_product", "utm_product (cần cài GTM)"],
+        ["Khách có đi qua tầng nuôi dưỡng không?", "Path exploration / Landing page + event", "Trang đích đầu phiên → view_mo_tai_khoan"],
+        ["Có mở tài khoản không, rơi ở bước nào?", "Funnel exploration", stepsOf(mainConv || {}).map(s => s.event).join(" → ")]
+      ].map(r => el("tr", {}, el("td", {}, r[0]), el("td", {}, el("b", {}, r[1])), el("td", {}, el("code", {}, r[2])))))));
+    box.append(el("div", { class: "recipes" }, [...D.conversions].sort((a, b) => !!b.main - !!a.main).map(c => el("div", { class: "recipe" },
+      el("h4", {}, "Funnel exploration: ", c.name),
+      el("ol", {},
+        el("li", {}, "Explore → Funnel exploration → Steps: ", stepsOf(c).map(s => s.event).filter(Boolean).map((e, i) => [i ? " → " : "", el("code", {}, e)])),
+        el("li", {}, "Breakdown: ", el("b", {}, "Session source / medium"), " để so sánh kênh, tài khoản; ", el("b", {}, "Session manual ad content"), " để so sánh vị trí link, bài."),
+        c.main ? el("li", {}, "Bật ", el("b", {}, "open funnel"), " để tính cả khách vào thẳng trang Mở tài khoản lẫn khách đi qua báo cáo, dịch vụ, khóa học.")
+          : el("li", {}, "Sau khóa học, theo dõi học viên quay lại mở tài khoản bằng segment: đã có ", el("code", {}, (stepsOf(c).find(s => s.key) || {}).event || "event"), ", sau đó có ", el("code", {}, (stepsOf(mainConv).find(s => s.key) || {}).event || "event"), "."))))));
+  }
+
+  // ===== Per-channel guide =====
+  let guideCh = (D.groups[0] || {}).id;
+  function renderGuide() {
+    const tabs = $("guideTabs"); tabs.innerHTML = "";
+    D.groups.forEach(ch => tabs.append(el("button", { type: "button", role: "tab", class: "chip", "aria-pressed": String(ch.id === guideCh), onclick: () => { guideCh = ch.id; renderGuide(); } },
+      (ch.platforms || []).map(p => el("span", { class: "ico", style: { width: "16px", height: "16px", color: PLATFORMS[p].color }, html: DSC.ICONS[p] })), ch.name)));
+    const ch = D.groups.find(g => g.id === guideCh); const box = $("guide"); box.innerHTML = "";
+    if (!ch) return;
+    const accts = accountsOf(ch);
+    box.append(el("div", { class: "g-head", style: { "--c": chColor(ch) } },
+      el("div", {}, el("small", {}, "Hướng dẫn dẫn link · " + (ch.role || "")), el("h2", {}, ch.name), el("p", {}, ch.goal)),
+      el("dl", {}, el("dt", {}, "Chỉ số theo dõi"), el("dd", {}, ch.kpi || "—"))));
+
+    box.append(el("h3", { class: "g-h3" }, "1. Sơ đồ: tài khoản nào dẫn về đâu"), guideFlow(ch, accts));
+
+    // Formats: where the link goes and what to say
+    const fs = formatsOf(ch);
+    if (fs.length) box.append(el("h3", { class: "g-h3" }, "2. Đặt link theo định dạng"),
+      el("table", { class: "g-fmt" },
+        el("thead", {}, el("tr", {}, ["Định dạng", "Link đặt ở", "Nói gì trong video", "Mẫu utm_content"].map(t => el("th", {}, t)))),
+        el("tbody", {}, fs.map(f => el("tr", {}, el("td", {}, el("span", { class: "fchip " + f.fmt }, el("i", {}, FMT[f.fmt] || f.fmt), f.label)),
+          el("td", {}, f.where), el("td", {}, f.cta), el("td", {}, el("code", {}, f.content)))))));
+
+    // Accounts: positioning, fixed link, per-video landings
+    box.append(el("h3", { class: "g-h3" }, `3. Từng tài khoản (${accts.length})`));
+    const grid = el("div", { class: "g-accts" });
+    accts.forEach(a => {
+      const fixed = D.slots.filter(s => s.m === a.m && live(DSC.landing(D, s.to)));
+      const vids = a.paid || (a.pos || []).some(p => p !== "bio" && p !== "menu") ? videoTo(a, ch).map(id => DSC.landing(D, id)).filter(live) : [];
+      grid.append(el("article", { class: "g-acct", style: { "--c": PLATFORMS[a.p].color } },
+        el("div", { class: "g-acct-h" }, icon(a.p), el("div", {}, el("b", {}, a.name), el("small", {}, [a.sub, a.owner].filter(Boolean).join(" · "))), el("code", {}, a.paid ? a.s : a.m)),
+        a.focus ? el("p", { class: "g-focus" }, a.focus) : null,
+        fixed.map(s => {
+          const l = DSC.landing(D, s.to), u = DSC.slotUrl(D, s), short = DSC.cachedShort(u);
+          return el("div", { class: "g-slot" },
+            el("div", { class: "g-thumb", title: "Vị trí đặt link" }, el("div", { class: "phone" }, el("div", { class: "phone-scr", html: Mockup.render(a.p, s.pos,
+              { name: a.name, where: s.where, url: short ? short.replace(/^https?:\/\//, "") : DSC.displayUrl(l.url), handle: a.sub && a.sub.startsWith("@") ? a.sub.slice(1) : "" }) }))),
+            el("div", { class: "g-slot-b" },
+              el("span", { class: "g-k" }, "Link cố định"),
+              el("div", {}, el("b", {}, s.where), " → ", el("b", {}, DSC.landingLabel(l)), " ", el("span", { class: "hint" }, `(${l.site === "Web chính" ? "Web DSC" : l.site})`)),
+              el("div", { class: "hint" }, "Cách đặt: ", s.how),
+              el("button", { type: "button", class: "btn sm no-print", onclick: e => { DSC.copyText(short || u, e.currentTarget); DSC.remember(u, `${DSC.accountName(a)} · ${s.where}`, DSC.slotMeta(D, s)); } }, short ? "Copy link ngắn" : "Copy link")));
+        }),
+        vids.length ? el("div", { class: "g-row" }, el("span", { class: "g-k" }, a.mode === "script" ? "Link theo kịch bản" : a.paid ? "URL đích ưu tiên" : "Link theo video"),
+          el("div", {}, a.mode === "script" && a.script ? el("p", { class: "g-script" }, a.script) : null,
+            el("ol", {}, vids.map(l => el("li", {}, el("b", {}, DSC.landingLabel(l)), " ", el("span", { class: "hint" }, `(${l.site === "Web chính" ? "Web DSC" : l.site})`)))))) : null,
+        !vids.length && !a.paid ? el("p", { class: "hint" }, "Mọi video dẫn khách về link cố định ở trên.") : null));
+    });
+    box.append(grid);
+    requestAnimationFrame(drawGuideFlow);
+
+    // Content type -> landing for per-video links
+    if (accts.some(a => (a.pos || []).some(p => p !== "bio" && p !== "menu"))) {
+      box.append(el("h3", { class: "g-h3" }, "4. Chọn trang đích theo nội dung (video, tin)"),
+        el("table", { class: "g-fmt" }, el("thead", {}, el("tr", {}, el("th", {}, "Loại nội dung"), el("th", {}, "Trang đích gợi ý (theo thứ tự)"))),
+          el("tbody", {}, D.prefixes.map(px => el("tr", {}, el("td", {}, px.label, " ", el("code", {}, px.code)),
+            el("td", {}, D.routes.filter(r => r.prefix === px.code).map(r => DSC.landing(D, r.to)).filter(live).map(l => DSC.landingLabel(l)).join(" → ") || "Chọn theo nội dung"))))),
+        el("p", { class: "hint" }, "Tạo link cho từng video ở trang ", el("a", { href: "index.html" }, "Tạo link"), "; tool tự gợi ý trang đích theo bảng này."));
+    }
+  }
+
+  // Diagram for one channel. Line colour = site of the landing page, solid = fixed link, dashed = per-video link.
+  const SITE_COLOR = site => /tài chính số/i.test(site || "") ? "#1bbe72" : "#272d2b";
+  function guideFlow(ch, accts) {
+    const links = [];
+    accts.forEach(a => {
+      D.slots.filter(sl => sl.m === a.m).forEach(sl => { const l = DSC.landing(D, sl.to); if (live(l)) links.push({ a, l, fixed: true, label: sl.where }); });
+      if (a.paid || (a.pos || []).some(p => p !== "bio" && p !== "menu"))
+        videoTo(a, ch).forEach(id => { const l = DSC.landing(D, id); if (live(l) && !links.some(x => x.a === a && x.l === l && x.fixed)) links.push({ a, l, fixed: false, script: a.mode === "script" }); });
+    });
+    const siteOf = a => { const ss = [...new Set(links.filter(x => x.a === a).map(x => x.l.site))]; return ss.length === 1 ? ss[0] : ss.length ? "both" : "none"; };
+    const GROUPS = [["Web chính", "Dẫn về web DSC"], ["Tài Chính Số", "Dẫn về Tài Chính Số"], ["both", "Dẫn về cả hai site"], ["none", "Chưa có link"]];
+    const pages = [...new Set(links.map(x => x.l))].sort((p, q) => D.landings.indexOf(p) - D.landings.indexOf(q));
+    const sites = [...new Set(pages.map(l => l.site))];
+    const node = (id, cls, ...kids) => el("div", { class: "gf-n " + cls, "data-gid": id }, kids);
+    const wrap = el("div", { class: "gflow" },
+      svg("svg", { class: "gf-lines", "aria-hidden": "true" }),
+      el("div", { class: "gf-col" }, el("div", { class: "gf-t" }, "Tài khoản"),
+        GROUPS.map(([k, t]) => { const list = accts.filter(a => siteOf(a) === k); return list.length ? el("div", { class: "gf-grp" }, el("div", { class: "gf-gl", style: { "--s": k === "both" || k === "none" ? "#6e7673" : SITE_COLOR(k) } }, t),
+          list.map(a => node("a:" + a.s + "|" + a.m, "acct", icon(a.p), el("span", {}, a.name)))) : null; })),
+      el("div", { class: "gf-col" }, el("div", { class: "gf-t" }, "Trang đích"),
+        sites.map(site => el("div", { class: "gf-grp" }, el("div", { class: "gf-gl", style: { "--s": SITE_COLOR(site) } }, site === "Web chính" ? "Web DSC" : site),
+          pages.filter(l => l.site === site).map(l => node("l:" + l.id, "pagen" + (l.id === goalLanding ? " is-goal" : "") + (l.state === "tam" ? " temp" : ""), el("b", {}, DSC.landingLabel(l)),
+            el("small", {}, `${links.filter(x => x.l === l).length} tuyến`)))))),
+      el("div", { class: "gf-col end" }, el("div", { class: "gf-t" }, "Đích cuối"), node("goal", "goal", el("small", {}, "Đích cuối"), el("b", {}, mainConv ? mainConv.name : "Mở tài khoản"))));
+    wrap._links = links;
+    const legend = el("div", { class: "gf-legend" },
+      el("span", {}, el("i", { class: "ln", style: { "--s": "#272d2b" } }), "Web DSC"),
+      el("span", {}, el("i", { class: "ln", style: { "--s": "#1bbe72" } }), "Tài Chính Số"),
+      el("span", {}, el("i", { class: "ln solid" }), "Link cố định (bio, CTA, menu)"),
+      el("span", {}, el("i", { class: "ln dash" }), "Link theo video / tin"),
+      el("span", {}, el("i", { class: "ln dot" }), "Link theo kịch bản (môi giới, Google Ads)"));
+    return el("div", {}, wrap, legend);
+  }
+  function drawGuideFlow() {
+    const wrap = document.querySelector("#guide .gflow"); if (!wrap || !wrap.offsetParent) return;
+    const S = wrap.querySelector(".gf-lines"), wr = wrap.getBoundingClientRect();
+    S.innerHTML = ""; S.setAttribute("width", wr.width); S.setAttribute("height", wr.height);
+    const box = id => { const n = wrap.querySelector(`[data-gid="${CSS.escape(id)}"]`); if (!n) return null; const r = n.getBoundingClientRect(); return { l: r.left - wr.left, r: r.right - wr.left, y: r.top - wr.top + r.height / 2, h: r.height }; };
+    const path = (a, b, color, dash, w, key) => {
+      const x0 = a.r, x1 = b.l, xm = (x0 + x1) / 2;
+      const e = svg("path", { d: `M${x0},${a.y}C${xm},${a.y} ${xm},${b.y} ${x1},${b.y}`, fill: "none", stroke: color, "stroke-width": w, "stroke-dasharray": dash || null, "stroke-linecap": "round" });
+      e.dataset.k = key; S.append(e);
+    };
+    const links = wrap._links || [];
+    links.forEach(x => { const a = box("a:" + x.a.s + "|" + x.a.m), b = box("l:" + x.l.id); if (a && b) path(a, b, SITE_COLOR(x.l.site), x.fixed ? "" : x.script ? "1 5" : "6 4", 2.5, "a:" + x.a.s + "|" + x.a.m + " l:" + x.l.id); });
+    const g = box("goal");
+    [...new Set(links.map(x => x.l))].forEach(l => { const b = box("l:" + l.id); if (b && g) path(b, g, "#1d4130", false, 1.5, "l:" + l.id + " goal"); });
+    // Hover an account or page to isolate its lines
+    wrap.querySelectorAll("[data-gid]").forEach(n => {
+      n.onmouseenter = () => { wrap.classList.add("hov"); S.querySelectorAll("path").forEach(p => p.classList.toggle("on", p.dataset.k.split(" ").includes(n.dataset.gid))); };
+      n.onmouseleave = () => { wrap.classList.remove("hov"); };
+    });
+  }
+
+  // ===== Fixed links =====
+  let platF = "", ownerF = "";
+  const peeks = new Set();
+  const slotKey = s => `${s.m}|${s.where}|${s.to}`;
+  function renderFixed() {
+    const slots = D.slots.filter(s => DSC.account(D, s.m));
+    const f = $("flt"); f.innerHTML = "";
+    const plats = PLATFORM_ORDER.filter(p => slots.some(s => DSC.account(D, s.m).p === p));
+    const owners = [...new Set(slots.map(s => DSC.account(D, s.m).owner).filter(Boolean))];
+    f.append(el("button", { type: "button", class: "chip", "aria-pressed": String(!platF), onclick: () => { platF = ""; renderFixed(); } }, "Mọi kênh"));
+    plats.forEach(p => f.append(el("button", { type: "button", class: "chip", "aria-pressed": String(platF === p), onclick: () => { platF = p; renderFixed(); } },
+      el("span", { class: "ico", style: { width: "16px", height: "16px", color: PLATFORMS[p].color }, html: DSC.ICONS[p] }), PLATFORMS[p].name)));
+    f.append(el("span", { class: "sep" }), el("button", { type: "button", class: "chip", "aria-pressed": String(!ownerF), onclick: () => { ownerF = ""; renderFixed(); } }, "Mọi team"));
+    owners.forEach(o => f.append(el("button", { type: "button", class: "chip", "aria-pressed": String(ownerF === o), onclick: () => { ownerF = o; renderFixed(); } }, o)));
+
+    const box = $("slots"); box.innerHTML = "";
+    const byAcct = {};
+    slots.forEach(s => (byAcct[s.m] = byAcct[s.m] || []).push(s));
+    Object.entries(byAcct).forEach(([m, list]) => {
+      const a = DSC.account(D, m), P = PLATFORMS[a.p] || PLATFORMS.other;
+      if ((platF && a.p !== platF) || (ownerF && a.owner !== ownerF)) return;
+      const card = el("article", { class: "card acard", style: { "--c": P.color } },
+        el("div", { class: "acard-h" }, icon(a.p), el("b", {}, `${P.name} · ${a.name}`), el("small", {}, a.owner || "")));
+      list.forEach(s => {
+        const k = slotKey(s), url = DSC.slotUrl(D, s), l = DSC.landing(D, s.to), short = DSC.cachedShort(url), open = peeks.has(k);
+        card.append(el("div", { class: "sl nocheck" },
+          el("div", {},
+            el("div", { class: "t" }, s.where, " → ", DSC.landingLabel(l) || s.to, " ", el("span", {}, l ? `(${l.site})` : "")),
+            l && l.state ? el("div", { class: "how warnline" }, l.state === "off" ? "Trang đã tắt, cần đổi trang đích." : `Trang tạm: ${l.note || ""}`) : null,
+            el("div", { class: "how" }, "Cách đặt: ", s.how),
+            short ? el("div", { class: "lk s" }, short.replace(/^https?:\/\//, "")) : null,
+            el("div", { class: "lk" }, url || "Thiếu tài khoản hoặc trang đích trong Danh mục")),
+          el("div", { class: "btns" },
+            el("button", { type: "button", class: "btn sm", onclick: e => { DSC.copyText(short || url, e.currentTarget); DSC.remember(url, `${DSC.accountName(a)} · ${s.where}`, DSC.slotMeta(D, s)); } }, short ? "Copy ngắn" : "Copy"),
+            short ? el("button", { type: "button", class: "btn ghost sm", onclick: e => DSC.copyText(url, e.currentTarget) }, "Copy dài")
+              : el("button", { type: "button", class: "btn ghost sm", onclick: e => doShorten(url, e.currentTarget) }, "Rút gọn"),
+            el("button", { type: "button", class: "btn ghost sm", "aria-expanded": String(open), onclick: () => { open ? peeks.delete(k) : peeks.add(k); renderFixed(); } }, open ? "Ẩn hình" : "Xem vị trí")),
+          open ? el("div", { class: "peek" }, el("div", { class: "peekbox" }, el("div", { class: "phone" },
+            el("div", { class: "phone-scr", html: Mockup.render(a.p, s.pos, { name: a.name, where: s.where, url: short ? short.replace(/^https?:\/\//, "") : DSC.displayUrl(l && l.url), handle: a.sub && a.sub.startsWith("@") ? a.sub.slice(1) : "" }) })))) : null));
+      });
+      box.append(card);
+    });
+    if (!box.children.length) box.append(el("p", { class: "hint" }, "Không có link nào khớp bộ lọc."));
+
+    const rb = $("routes"); rb.innerHTML = "";
+    D.prefixes.forEach(p => {
+      const to = D.routes.filter(r => r.prefix === p.code).map(r => DSC.landing(D, r.to)).filter(live);
+      rb.append(el("div", { class: "card route" }, el("b", {}, p.label, " ", el("code", {}, p.code)),
+        to.length ? el("ol", {}, to.map(l => el("li", {}, DSC.landingLabel(l), " ", el("span", { class: "hint" }, `· ${l.site}`))))
+          : el("span", { class: "hint" }, "Chưa có gợi ý. Chọn theo nội dung bài.")));
+    });
+  }
+  async function doShorten(url, btn) {
+    btn.disabled = true; btn.textContent = "…";
+    try { await DSC.shorten(url); renderFixed(); } catch (e) { btn.disabled = false; btn.textContent = "Lỗi, thử lại"; }
+  }
+
+  // ===== Tabs =====
+  const TABS = [["tabMap", "paneMap"], ["tabGuide", "paneGuide"], ["tabFixed", "paneFixed"]];
+  function show(tab) {
+    TABS.forEach(([t, p]) => { $(t).setAttribute("aria-selected", String(t === tab)); $(p).hidden = t !== tab; });
+    if (tab === "tabMap") drawLines();
+    if (tab === "tabGuide") drawGuideFlow();
+    history.replaceState(null, "", "#" + { tabMap: "ban-do", tabGuide: "huong-dan", tabFixed: "link-co-dinh" }[tab]);
+  }
+  TABS.forEach(([t]) => $(t).addEventListener("click", () => show(t)));
+
+  renderAlerts(); renderJourney(); renderStrategy(); renderFunnels(); renderGa4(); renderGuide(); renderFixed();
+  show({ "#link-co-dinh": "tabFixed", "#huong-dan": "tabGuide" }[location.hash] || "tabMap");
+  if (document.fonts) document.fonts.ready.then(() => { drawLines(); drawGuideFlow(); });
+  let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { if (!$("paneMap").hidden) drawLines(); drawGuideFlow(); }, 120); });
+});
+</script>
+</body>
+</html>

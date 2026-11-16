@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Quy chuẩn UTM · DSC UTM Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="doc">
+  <nav class="toc" id="toc" aria-label="Mục lục"><b>Mục lục</b></nav>
+  <article>
+    <h1>Quy chuẩn UTM – Chứng khoán DSC</h1>
+    <p class="lead">Áp dụng cho mọi link trỏ về <b>Web chính</b> (<code>www.dsc.com.vn</code>) và <b>DSC Tài Chính Số</b> (<code>taichinhso.dsc.com.vn</code>). Tạo link bằng <a href="index.html">UTM Builder</a>, không gõ tay. Các bảng mã bên dưới lấy trực tiếp từ <a href="danh-muc.html">Danh mục</a>, nên luôn khớp với tool.</p>
+    <p class="no-print"><button type="button" class="btn ghost sm" onclick="window.print()">In / lưu PDF</button></p>
+
+    <h2 id="nguyen-tac">Nguyên tắc chung</h2>
+    <ol>
+      <li><b>Viết thường, không dấu, không khoảng trắng.</b> GA4 phân biệt hoa thường: <code>TikTok_DSC</code> và <code>tiktok_dsc</code> bị tính thành 2 dòng.</li>
+      <li><b>Phân cách bằng dấu gạch dưới <code>_</code></b> cho mọi tham số.</li>
+      <li><b>Chỉ dùng mã có trong tài liệu này.</b> Muốn dùng mã mới thì thêm vào Danh mục trước, rồi mới tạo link.</li>
+      <li><b>Không đổi mã đã dùng.</b> Đổi mã sẽ làm lịch sử của kênh bị tách làm đôi.</li>
+      <li><b>Mã organic không được chứa <code>cp</code>, <code>ppc</code> và không bắt đầu bằng <code>paid</code>.</b> Nếu vi phạm, GA4 sẽ xếp traffic vào Paid.</li>
+      <li><b>Source luôn là nền tảng thật</b> (<code>tiktok</code>, <code>youtube</code>, <code>facebook</code>, <code>zalo</code>…). Tên tài khoản đặt ở medium.</li>
+      <li><b>Link Tài Chính Số luôn dùng <code>taichinhso.dsc.com.vn</code></b>, không dùng <code>taichinhso.hvsvn.com</code>.</li>
+    </ol>
+
+    <h2 id="tham-so">5 tham số UTM</h2>
+    <div class="params5">
+      <div class="k-source"><b>utm_source</b><span>Nền tảng đưa traffic về</span><code>tiktok</code></div>
+      <div class="k-medium"><b>utm_medium</b><span>Tài khoản / hình thức tiếp cận</span><code>tiktok_dfin24</code></div>
+      <div class="k-campaign"><b>utm_campaign</b><span>Chiến dịch / tuyến bài</span><code>mo_tai_khoan_thang_11</code></div>
+      <div class="k-content"><b>utm_content</b><span>Bài đăng cụ thể: vị trí + loại + tiêu đề</span><code>description_livestream_…</code></div>
+      <div class="k-product"><b>utm_product</b><span>Sản phẩm / khóa học được nhắc tới</span><code>nha_phan_tich</code></div>
+    </div>
+    <div class="callout">GA4 không tự đọc <code>utm_product</code>. Để mã này vào được báo cáo, cần cài GTM theo mục <a href="#ga4">Cài đặt GA4 / GTM</a>.</div>
+
+    <h2 id="kenh">Bảng mã kênh</h2>
+    <p><b>Quy tắc đặt medium:</b> <code>&lt;nền tảng hoặc loại kênh&gt;_&lt;tài khoản&gt;</code>. Medium vẫn ghi tên tài khoản kể cả khi nền tảng mới có 1 tài khoản, để sau này mở thêm tài khoản không phải đổi quy tắc. Kênh đang Off không có mã. Khi bật lại kênh thì thêm mã vào Danh mục.</p>
+    <table id="tblAccounts"></table>
+    <div class="callout warn"><b>Quảng cáo trả tiền:</b> medium luôn là <code>cpc</code>, không ghi tên tài khoản. Source là nền tảng quảng cáo (<code>google</code>, <code>facebook</code>, <code>tiktok</code>). <code>utm_content</code> là tên mẫu quảng cáo. Bài organic được đẩy sang chạy ads thì đổi medium sang <code>cpc</code> trước khi chạy. Google Ads đang bật auto-tagging (gclid) thì GA4 lấy source/medium từ gclid; UTM thủ công chỉ bổ sung content và product.</div>
+
+    <h2 id="content">Content</h2>
+    <p><b><code>utm_content</code> = <code>[vị trí]_&lt;loại nội dung&gt;_&lt;tiêu đề&gt;</code></b>. Tiêu đề dài tối đa 5–6 từ.</p>
+    <h3>Loại nội dung</h3>
+    <table id="tblPrefixes"></table>
+    <h3>Vị trí link</h3>
+    <table>
+      <thead><tr><th>Mã</th><th>Vị trí</th><th>Ví dụ</th></tr></thead>
+      <tbody>
+        <tr><td><i>(bỏ trống)</i></td><td>Link trong thân bài, caption, tin nhắn. Đây là mặc định nên không ghi.</td><td><code>nhan_dinh_vn_index_tuan_47</code></td></tr>
+        <tr><td><code>bio</code></td><td>Link cố định ở bio TikTok, nút CTA và mục Giới thiệu của fanpage, đường liên kết trên trang kênh YouTube. Chỉ ghi <code>bio</code>.</td><td><code>bio</code></td></tr>
+        <tr><td><code>description</code></td><td>Link trong mô tả video YouTube</td><td><code>description_livestream_chien_luoc_thang_12</code></td></tr>
+        <tr><td><code>cmt</code></td><td>Link trong bình luận, kể cả bình luận ghim</td><td><code>cmt_nhan_dinh_vn_index_tuan_47</code></td></tr>
+        <tr><td><code>story</code></td><td>Link qua sticker Story Facebook</td><td><code>story_hoi_thao_trien_vong_2027</code></td></tr>
+        <tr><td><code>menu</code></td><td>Link cố định ở menu Zalo OA. Chỉ ghi <code>menu</code>.</td><td><code>menu</code></td></tr>
+      </tbody>
+    </table>
+    <p>TikTok chỉ cho đặt link ở bio, nên link TikTok luôn là <code>bio</code>. Link <code>bio</code> và <code>menu</code> là link cố định, không gắn chiến dịch.</p>
+
+    <h2 id="product">Product</h2>
+    <table id="tblProducts"></table>
+
+    <h2 id="trang-dich">Trang đích</h2>
+    <table id="tblLandings"></table>
+
+    <h2 id="ke-hoach">Kế hoạch link cố định</h2>
+    <p>Mỗi kênh cài sẵn link cố định trỏ về 1 trong 2 site. Copy link và đánh dấu tiến độ ở trang <a href="ke-hoach.html">Kế hoạch link</a>.</p>
+    <table id="tblSlots"></table>
+    <p><b>Logic phân bổ:</b> Kênh thương hiệu và kênh tin tức (DSC, D-Trending, Tiền đi về đâu) dẫn về Mở tài khoản, vì đây là chuyển đổi chính. Kênh nhận định thị trường (D-Fin24) dẫn về Báo cáo phân tích, để giữ đúng mạch nội dung người xem đang theo dõi. Kênh kiến thức cho người mới (Chứng khoán dễ ợt) dẫn về khóa tân thủ miễn phí. Kênh của Phòng Phân tích và kênh Excel dẫn về Tài Chính Số.</p>
+    <h3>Link theo bài: trang đích mặc định</h3>
+    <table id="tblRoutes"></table>
+
+    <h2 id="vi-du">Ví dụ link hoàn chỉnh</h2>
+    <table>
+      <thead><tr><th>Tình huống</th><th>Link</th></tr></thead>
+      <tbody>
+        <tr><td>Bio TikTok Chứng khoán DSC</td><td class="wrap"><code>https://www.dsc.com.vn/mo-tai-khoan?utm_source=tiktok&amp;utm_medium=tiktok_dsc&amp;utm_content=bio&amp;utm_product=mo_tai_khoan</code></td></tr>
+        <tr><td>Mô tả livestream YouTube Tài chính số DSC</td><td class="wrap"><code>https://taichinhso.dsc.com.vn/thuc-tap-so/NHA-PHAN-TICH?utm_source=youtube&amp;utm_medium=youtube_tcs&amp;utm_content=description_livestream_nhan_dinh_vn_index_tuan_47&amp;utm_product=nha_phan_tich</code></td></tr>
+        <tr><td>TikTok Ads khóa Excel</td><td class="wrap"><code>https://taichinhso.dsc.com.vn/thuc-tap-so?utm_source=tiktok&amp;utm_medium=cpc&amp;utm_campaign=excel_q4&amp;utm_content=excel_dashboard_ngan_hang&amp;utm_product=excel_dashboard_ngan_hang</code></td></tr>
+        <tr><td>Môi giới gửi qua Zalo</td><td class="wrap"><code>https://www.dsc.com.vn/mo-tai-khoan?utm_source=zalo&amp;utm_medium=zalo_moigioi&amp;utm_content=sales_moi_mo_tai_khoan&amp;utm_product=mo_tai_khoan</code></td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="rut-gon">Link rút gọn</h2>
+    <p>Nút <b>Rút gọn</b> tạo link <code>is.gd/…</code> trỏ tới link UTM đầy đủ. GA4 vẫn đọc đủ UTM vì link ngắn chuyển hướng sang link dài. Cùng một link dài luôn cho cùng một link ngắn trên trình duyệt đã tạo. Dùng link ngắn cho bio, tin nhắn, story; dùng link dài cho ô URL đích của quảng cáo.</p>
+
+    <h2 id="ga4">Cài đặt GA4 / GTM</h2>
+    <ol>
+      <li><b>Ghi <code>utm_product</code> vào GA4.</b> Trong GTM (<code>GTM-MMNHPGKQ</code>), tạo Variable loại URL, component Query, key <code>utm_product</code>. Gắn variable này làm event parameter <code>utm_product</code> trên tag Google tag / page_view. Sau đó vào GA4 → Custom definitions, tạo custom dimension (scope Event) tên <code>utm_product</code>. Nếu muốn giữ product cho cả các trang xem sau trong phiên, lưu giá trị vào cookie hoặc sessionStorage ở lần chạm đầu.</li>
+      <li><b>Kênh Zalo.</b> Zalo không có trong danh sách mạng xã hội mặc định của GA4. Vào GA4 → Channel groups, tạo custom channel group, thêm kênh “Zalo” với điều kiện <code>source = zalo</code>. Đặt kênh này trên Organic Social / Referral.</li>
+      <li><b>Tài Chính Số.</b> Site đang chạy trên domain khác (<code>hvsvn.com</code>, đang chuyển sang domain DSC). Cần gắn cùng GA4 property <code>G-Z4B7FSFJDL</code> hoặc cùng GTM container, và khai báo cross-domain cho <code>dsc.com.vn</code> và <code>taichinhso.dsc.com.vn</code>. Nếu không, số liệu bị tách làm đôi và phiên đi từ web chính sang khóa học bị tính thành referral.</li>
+      <li><b>Kiểm tra.</b> Mở từng link mẫu ở trên, xem GA4 DebugView có nhận đủ source / medium / campaign / content và <code>utm_product</code> không.</li>
+    </ol>
+  </article>
+</div>
+
+<script src="assets/data.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/common.js"></script>
+<script>
+// Wait for the shared catalog (Supabase) before reading it
+DSC.ready().then(function () {
+  "use strict";
+  const { $, el, PLATFORMS, PLATFORM_ORDER } = DSC;
+  DSC.renderNav("rules");
+  const D = DSC.loadData();
+  const code = t => t ? el("code", {}, t) : el("span", { class: "hint" }, "—");
+  function table(id, head, rows) {
+    const t = $(id); t.innerHTML = "";
+    t.append(el("thead", {}, el("tr", {}, head.map(h => el("th", {}, h)))),
+      el("tbody", {}, rows.map(r => el("tr", {}, r.map(c => el("td", {}, c))))));
+  }
+  const badge = p => { const P = PLATFORMS[p] || PLATFORMS.other; return el("span", { class: "badge", style: { "--c": P.color } }, DSC.icon(p in PLATFORMS ? p : "other"), P.name); };
+
+  const accts = PLATFORM_ORDER.flatMap(p => D.accounts.filter(a => a.p === p));
+  table("tblAccounts", ["Nền tảng", "utm_source", "utm_medium", "Tài khoản", "Vị trí link", "Quản lý"],
+    accts.map(a => [badge(a.p), code(a.s), code(a.m), [a.name, a.sub ? el("div", { class: "hint" }, a.sub) : ""],
+      a.paid ? "URL đích của quảng cáo" : (a.pos || []).map(p => DSC.posLabel(p, a.p)).join(", "), a.owner || ""]));
+  table("tblPrefixes", ["Tiền tố", "Dùng cho", "Ví dụ"],
+    D.prefixes.map(x => [code(x.code), `${x.label}: ${x.help}`, code(`${x.code}_…`)]));
+  table("tblProducts", ["Nhóm", "Sản phẩm", "Mã"], D.products.map(p => [p.group, p.name, code(p.code)]));
+  table("tblLandings", ["Site", "Trang", "URL", "Product mặc định"],
+    D.landings.map(l => [l.site, l.label, el("a", { href: l.url, target: "_blank", rel: "noopener" }, DSC.displayUrl(l.url)), code(l.product)]));
+  table("tblSlots", ["Kênh", "Vị trí", "Trang đích", "Site"], D.slots.map(s => {
+    const a = DSC.account(D, s.m), l = DSC.landing(D, s.to);
+    return [a ? [badge(a.p), " ", a.name] : s.m, s.where, l ? l.label : s.to, l ? l.site : ""];
+  }));
+  table("tblRoutes", ["Loại nội dung", "Trang đích gợi ý (theo thứ tự)"], D.prefixes.map(p => [p.label,
+    D.routes.filter(r => r.prefix === p.code).map(r => (DSC.landing(D, r.to) || { label: r.to }).label).join(" → ") || "Chọn theo nội dung bài"]));
+
+  // Table of contents with scroll spy
+  const heads = [...document.querySelectorAll("article h2[id]")];
+  const toc = $("toc");
+  heads.forEach(h => toc.append(el("a", { href: "#" + h.id, "data-id": h.id }, h.textContent)));
+  const spy = () => {
+    let on = heads[0];
+    heads.forEach(h => { if (h.getBoundingClientRect().top < 120) on = h; });
+    toc.querySelectorAll("a").forEach(a => a.classList.toggle("on", a.dataset.id === on.id));
+  };
+  addEventListener("scroll", spy, { passive: true }); spy();
+});
+</script>
+</body>
+</html>

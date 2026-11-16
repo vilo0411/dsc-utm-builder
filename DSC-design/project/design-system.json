@@ -1,0 +1,49 @@
+{
+  "v": 3,
+  "assetGroups": {
+    "Logos": {
+      "files": {
+        "dsc-logo-green.png": {
+          "blob": "8d124d1c4d8c0e3d05162eeb2ad06c85",
+          "name": "dsc-logo-green.png",
+          "size": 1963,
+          "type": "image/png"
+        },
+        "dsc-logo-white.png": {
+          "blob": "05c358d7eebcc8219586b7c6db4784d8",
+          "name": "dsc-logo-white.png",
+          "size": 1297,
+          "type": "image/png"
+        }
+      },
+      "name": "Logos",
+      "order": [
+        "dsc-logo-green.png",
+        "dsc-logo-white.png"
+      ],
+      "tile": "l"
+    }
+  },
+  "blobs": {},
+  "createdOnFiles": {
+    "at": "2026-10-12T08:40:00Z",
+    "v": 1
+  },
+  "docs": {
+    "sections": []
+  },
+  "groups": [
+    "Logos"
+  ],
+  "lastChange": {
+    "at": "2026-10-12T15:15:00Z",
+    "by": "Claude",
+    "note": "Thêm token mint-50 cho mảng đọc lâu; surface-alt dùng mint-50.",
+    "via": "Claude"
+  },
+  "layout": "files",
+  "libraries": [],
+  "namespace": "DSC",
+  "sections": {},
+  "title": "DSC"
+}

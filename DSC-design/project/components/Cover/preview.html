@@ -1,0 +1,39 @@
+<!-- @dsCard height=288 -->
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;background:var(--surface);}
+  .cover{position:relative;width:960px;height:288px;overflow:hidden;background:var(--surface);font-family:var(--font-sans);}
+  .cover svg{position:absolute;left:0;top:0;}
+  .deep{fill:var(--ink);} .pine{fill:var(--pine-teal);} .lime{fill:var(--lime-green);}
+  .emerald{fill:var(--emerald);} .mint{fill:var(--frosted-mint);} .cut{fill:var(--surface);}
+  .text{position:absolute;left:48px;bottom:48px;max-width:400px;}
+  .name{margin:0;font-size:120px;line-height:.92;font-weight:700;color:var(--ink);letter-spacing:-0.02em;}
+  .tag{margin:16px 0 0;font-size:14px;line-height:1.45;color:var(--ink-muted);}
+</style></head>
+<body>
+<div class="cover">
+  <!--
+    blocks: lime-green 216×288 (identity, largest), ink/gunmetal 144×192, pine-teal 144×96, emerald 96×144, frosted-mint 96×144 — radius-none
+    arrangement: strip of unequal flush bands from x=480 to the right edge, bleeding top and bottom, like slide 11's palette strip
+    pattern: horizontal speed-cuts in surface colour across the lime band — the cuts in the logo's D (literal motif row)
+    steps/radii: band widths multiples of space-4 (48) and space-3 (24); cut height space-1 (8), pitch space-2 (16); radius-none
+  -->
+  <svg width="960" height="288" viewBox="0 0 960 288" aria-hidden="true">
+    <rect class="deep" x="480" y="0" width="144" height="192"/>
+    <rect class="pine" x="480" y="192" width="144" height="96"/>
+    <rect class="lime" x="624" y="0" width="216" height="288"/>
+    <rect class="emerald" x="840" y="0" width="120" height="144"/>
+    <rect class="mint" x="840" y="144" width="120" height="144"/>
+    <rect class="cut" x="624" y="72" width="96" height="8"/>
+    <rect class="cut" x="624" y="88" width="72" height="8"/>
+    <rect class="cut" x="624" y="104" width="48" height="8"/>
+    <rect class="cut" x="624" y="120" width="24" height="8"/>
+  </svg>
+  <div class="text">
+    <h1 class="name">DSC</h1>
+    <p class="tag">Hệ thống thiết kế thương hiệu DSC</p>
+  </div>
+</div>
+</body></html>
