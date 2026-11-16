@@ -144,8 +144,8 @@ DSC.ready().then(function () {
   };
   function landingOpts() { return [["", "Chọn…"], ...D.landings.map(l => [l.id, `${DSC.landingLabel(l)} (${l.site})${l.state === "off" ? " – đã tắt" : ""}`])]; }
 
-  let cur = (location.hash.slice(1) in SCHEMA) || location.hash === "#io" ? location.hash.slice(1) : "accounts";
-  let work = cur === "io" ? null : clone(D[cur]), dirty = false;
+  let cur = (location.hash.slice(1) in SCHEMA) || location.hash === "#io" || location.hash === "#history" ? location.hash.slice(1) : "accounts";
+  let work = cur in SCHEMA ? clone(D[cur]) : null, dirty = false;
 
   // ===== Validation =====
   function validate(key, rows) {
@@ -179,23 +179,90 @@ DSC.ready().then(function () {
     return w;
   }
 
+  // ===== Plain-language labels for the list and the form =====
+  const platName = p => (PLATFORMS[p] || PLATFORMS.other).name;
+  const landName = id => { const l = D.landings.find(x => x.id === id); return l ? DSC.landingLabel(l) : id || "?"; };
+  const acctName = m => { const a = D.accounts.find(x => x.m === m); return a ? DSC.accountName(a) : m || "?"; };
+  const FMT_NAME = { short: "Video ngắn", long: "Video dài", live: "Livestream", msg: "Tin nhắn", ad: "Quảng cáo" };
+  const STATE_NAME = { tam: "Tạm thời", off: "Đã tắt" };
+  const ITEM = {
+    accounts: { t: r => `${platName(r.p)} · ${r.name || "(chưa đặt tên)"}`, s: r => [r.paid ? "Trả tiền" : "", r.inactive ? "Tạm ngưng" : "", r.sub, r.owner].filter(Boolean).join(" · ") },
+    positions: { t: r => r.label || "(chưa đặt tên)", s: r => r.help },
+    landings: { t: r => r.label || "(chưa đặt tên)", s: r => [r.site, STATE_NAME[r.state], DSC.displayUrl(r.url)].filter(Boolean).join(" · ") },
+    products: { t: r => r.name || "(chưa đặt tên)", s: r => r.group },
+    prefixes: { t: r => r.label || "(chưa đặt tên)", s: r => r.help },
+    routes: { t: r => `${(D.prefixes.find(x => x.code === r.prefix) || {}).label || r.prefix || "?"} → ${landName(r.to)}`, s: () => "" },
+    slots: { t: r => `${acctName(r.m)} · ${r.where || "?"}`, s: r => "→ " + landName(r.to) },
+    campaigns: { t: r => r.name || "(chưa đặt tên)", s: () => "" },
+    hosts: { t: r => r.host || "(trống)", s: () => "" },
+    groups: { t: r => r.name || "(chưa đặt tên)", s: r => r.role },
+    formats: { t: r => `${platName(r.p)} · ${r.label || "?"}`, s: r => FMT_NAME[r.fmt] || r.fmt },
+    hubs: { t: r => r.name || "(chưa đặt tên)", s: r => `${(r.landings || []).length} trang` },
+    conversions: { t: r => r.name || "(chưa đặt tên)", s: r => r.main ? "Đích chính" : "" },
+    steps: { t: r => `${(D.conversions.find(c => c.id === r.conv) || {}).name || r.conv || "?"} · ${r.step || "?"}`, s: r => r.event }
+  };
+  const itemTitle = (k, r) => (ITEM[k] || { t: r => JSON.stringify(r) }).t(r);
+  const itemSub = (k, r) => (ITEM[k] || { s: () => "" }).s(r) || "";
+  // One-line explanation under each field
+  const HELP = {
+    accounts: {
+      p: "Mạng xã hội hoặc nền tảng quảng cáo.",
+      s: "Thường là tên nền tảng: facebook, tiktok, youtube, zalo. Quảng cáo Google ghi google.",
+      m: "Mã riêng của tài khoản, ví dụ fanpage_dsc. Quảng cáo luôn là cpc. Đã dùng thì không đổi.",
+      name: "Tên mọi người hay gọi, hiện trên nút chọn kênh.", sub: "Ví dụ: @dsc.official, hoặc 1 câu mô tả.",
+      owner: "Team phụ trách kênh.", focus: "Kênh này đăng nội dung gì, cho ai.",
+      to: "Video / tin của kênh này thường dẫn về đâu. Bỏ trống thì dùng trang mặc định của nền tảng.",
+      mode: "Theo kịch bản: môi giới gửi link theo kịch bản chăm sóc, không theo từng video.",
+      pos: "Những chỗ kênh này được đặt link.", paid: "Tài khoản chạy quảng cáo trả tiền.", inactive: "Ẩn khỏi bản đồ hành trình, vẫn tạo link được."
+    },
+    positions: { label: "Tên hiển thị trên nút chọn vị trí.", code: "Đứng đầu utm_content. Để trống nghĩa là “trong bài”.", help: "Giải thích ngắn, hiện dưới nút." },
+    landings: {
+      id: "Mã nội bộ để các mục khác trỏ tới, không xuất hiện trong link.", site: "Web chính hoặc Tài Chính Số.", label: "Tên trang mọi người hay gọi.",
+      url: "Địa chỉ đầy đủ, phải thuộc dsc.com.vn.", product: "Tự điền sản phẩm khi chọn trang này.",
+      state: "Tạm thời: hiện cảnh báo khi tạo link. Đã tắt: ẩn khỏi Tạo link và bản đồ.", note: "Ví dụ: sẽ tắt khi Tài Chính Số chuyển xong."
+    },
+    products: { group: "Nhóm để gom trong ô chọn.", name: "Tên sản phẩm.", code: "Giá trị utm_product. Đã dùng thì không đổi." },
+    prefixes: { label: "Tên loại bài.", code: "Đứng đầu utm_content, ví dụ nhan_dinh. Đã dùng thì không đổi.", help: "Ví dụ ngắn, hiện dưới nút." },
+    routes: { prefix: "Khi chọn loại bài này…", to: "…trang Tạo link gợi ý trang đích này. Dòng ở trên được gợi ý trước." },
+    slots: {
+      m: "Tài khoản đặt link cố định.", pos: "bio: trang hồ sơ, nút CTA. menu: menu Zalo OA.", where: "Tên ngắn, ví dụ “Nút CTA”, “Link 1 trang kênh”.",
+      how: "Các bước bấm trên nền tảng để dán link.", to: "Link cố định dẫn về trang nào. Đổi trang thì phải cài lại link trên kênh."
+    },
+    campaigns: { name: "Tên chiến dịch, hiện trong ô gợi ý ở trang Tạo link." },
+    hosts: { host: "Tên miền thuộc dsc.com.vn. Link ngoài danh sách sẽ bị cảnh báo." },
+    steps: { event: "Đúng tên event đã cài trên GA4.", key: "Bước chuyển đổi cuối cùng." }
+  };
+  const ADVANCED = ["groups", "formats", "hubs", "conversions", "steps"];
+
   // ===== Render =====
   function renderNav() {
     const nav = $("catNav"); nav.innerHTML = "";
-    Object.entries(SCHEMA).forEach(([k, S]) => (k === "groups" ? nav.append(el("hr")) : 0, nav.append(el("button", { type: "button", role: "tab", "aria-selected": String(k === cur), onclick: () => go(k) },
-      el("span", {}, S.title, D.custom.includes(k) ? el("span", { class: "dotc", title: "Chỉnh riêng trên trình duyệt này" }) : null), el("small", {}, D[k].length)))));
-    nav.append(el("hr"), el("button", { type: "button", role: "tab", "aria-selected": String(cur === "io"), onclick: () => go("io") }, el("span", {}, DSC.configured() ? "Dùng chung / xuất file" : "Xuất / nhập file")));
+    const btn = k => el("button", { type: "button", role: "tab", "aria-selected": String(k === cur), onclick: () => go(k) },
+      el("span", {}, SCHEMA[k].title, D.custom.includes(k) ? el("span", { class: "dotc", title: "Chỉnh riêng trên trình duyệt này" }) : null), el("small", {}, D[k].length));
+    Object.keys(SCHEMA).filter(k => !ADVANCED.includes(k)).forEach(k => nav.append(btn(k)));
+    nav.append(el("details", { class: "cat-adv", open: ADVANCED.includes(cur) || null },
+      el("summary", {}, "Bản đồ hành trình"), ADVANCED.map(btn)));
+    nav.append(el("hr"));
+    if (DSC.configured()) nav.append(el("button", { type: "button", role: "tab", "aria-selected": String(cur === "history"), onclick: () => go("history") }, el("span", {}, "Lịch sử thay đổi")));
+    nav.append(el("button", { type: "button", role: "tab", "aria-selected": String(cur === "io"), onclick: () => go("io") }, el("span", {}, DSC.configured() ? "Dùng chung / xuất file" : "Xuất / nhập file")));
   }
   function go(k) {
     if (dirty && !confirm("Có thay đổi chưa lưu. Bỏ thay đổi?")) return;
     cur = k; history.replaceState(null, "", "#" + k);
-    work = k === "io" ? null : clone(D[k]); dirty = false; render();
+    work = k in SCHEMA ? clone(D[k]) : null; dirty = false; sel = 0; q = ""; render();
   }
 
   function cellInput(c, r, i) {
     const set = v => { r[c.k] = v; touch(); };
     if (c.type === "select") {
-      const s = el("select", { "aria-label": c.label, onchange: e => set(e.target.value) }, c.options().map(([v, t]) => el("option", { value: v }, t)));
+      const s = el("select", { "aria-label": c.label, onchange: e => {
+        set(e.target.value);
+        // Platform change: drop positions the new platform lacks and redraw the position checkboxes
+        if (c.k === "p" && cur === "accounts") {
+          if (r.pos) { r.pos = r.pos.filter(p => DSC.posAllowed(p, r.p)); if (!r.pos.length) delete r.pos; }
+          renderForm();
+        }
+      } }, c.options().map(([v, t]) => el("option", { value: v }, t)));
       s.value = r[c.k] || "";
       if (r[c.k] && s.value !== r[c.k]) { s.append(el("option", { value: r[c.k] }, r[c.k] + " (không tồn tại)")); s.value = r[c.k]; }
       return s;
@@ -210,63 +277,203 @@ DSC.ready().then(function () {
         } }), t)));
     }
     if (c.type === "pos") {
-      const cur = new Set(r.pos || []);
-      return el("div", { class: "pos-multi" }, Object.keys(POS).map(p => el("label", {},
+      // Only positions that exist on this account's platform, worded the platform's way
+      const opts = Object.keys(POS).filter(p => DSC.posAllowed(p, r.p));
+      const cur = new Set((r.pos || []).filter(p => opts.includes(p)));
+      return el("div", { class: "pos-multi" }, opts.map(p => el("label", {},
         el("input", { type: "checkbox", checked: cur.has(p), onchange: e => {
           e.target.checked ? cur.add(p) : cur.delete(p);
-          r.pos = Object.keys(POS).filter(x => cur.has(x)); if (!r.pos.length) delete r.pos; touch();
-        } }), (POS[p] || {}).label || p || "trong bài")));
+          r.pos = opts.filter(x => cur.has(x)); if (!r.pos.length) delete r.pos; touch();
+        } }), DSC.posLabel(p, r.p) || p || "trong bài")));
     }
     const listId = c.list ? `dl_${c.k}` : null;
     const inp = el("input", { type: c.type === "url" ? "url" : "text", class: c.type === "code" ? "code" : "", value: r[c.k] || "", "aria-label": c.label, list: listId,
-      style: c.wide ? { minWidth: "260px" } : null,
       oninput: e => { r[c.k] = e.target.value; touch(); },
       onchange: e => {
         if (c.type === "code") { const v = slug(e.target.value); e.target.value = v; r[c.k] = v; }
         // Auto-fill code from name when the code is still empty
-        if (c.slugTo && !r[c.slugTo]) { r[c.slugTo] = slug(e.target.value); const t = e.target.closest("tr").querySelector(`[data-k="${c.slugTo}"] input`); if (t) t.value = r[c.slugTo]; }
+        if (c.slugTo && !r[c.slugTo]) { r[c.slugTo] = slug(e.target.value); const t = $("main").querySelector(`[data-k="${c.slugTo}"] input`); if (t) t.value = r[c.slugTo]; }
         touch();
       } });
     return inp;
   }
 
-  function touch() { dirty = true; renderWarns(); $("saveBtn").disabled = false; $("undoBtn").disabled = false; }
+  // Editor state: selected row, search, rows added this session (codes open), rows whose codes were unlocked
+  let sel = 0, q = "";
+  // danh-muc.html?k=<row key>#slots opens that row (used by "Sửa trong kế hoạch" in Kho link)
+  { const k0 = new URLSearchParams(location.search).get("k");
+    if (k0 && work) { const i = work.findIndex(r => SCHEMA[cur].key(r) === k0); if (i >= 0) sel = i; } }
+  let fresh = new WeakSet(), unlocked = new WeakSet();
+
+  function touch() {
+    dirty = true;
+    $("saveBtn").disabled = false; $("undoBtn").disabled = false;
+    renderList(); renderWarns();
+  }
 
   function renderWarns() {
     const w = validate(cur, work), ul = $("warns"); ul.innerHTML = "";
-    w.forEach(([, t]) => ul.append(el("li", {}, t)));
-    document.querySelectorAll("#ed tbody tr").forEach((tr, i) => tr.classList.toggle("bad", w.some(x => x[0] === i)));
+    w.forEach(([i, t]) => ul.append(el("li", {}, i >= 0
+      ? el("button", { type: "button", class: "qe-link", onclick: () => pick(i) }, t)
+      : t)));
+    document.querySelectorAll("#ceList .ce-item").forEach(b => b.classList.toggle("bad", w.some(x => x[0] === +b.dataset.i)));
+  }
+
+  function pick(i) { sel = i; renderList(); renderForm(); const f = $("ceForm").querySelector("input, select, textarea"); if (f) f.focus({ preventScroll: true }); }
+
+  function renderList() {
+    const box = $("ceList"); if (!box) return;
+    box.innerHTML = "";
+    const qq = slug(q);
+    const w = validate(cur, work);
+    work.forEach((r, i) => {
+      const t = itemTitle(cur, r), sub = itemSub(cur, r);
+      if (qq && !slug(t + " " + sub + " " + JSON.stringify(r)).includes(qq)) return;
+      box.append(el("button", { type: "button", class: "ce-item" + (w.some(x => x[0] === i) ? " bad" : ""), "data-i": i, "aria-current": i === sel ? "true" : null, onclick: () => pick(i) },
+        el("span", { class: "ce-n" }, i + 1),
+        el("span", { class: "ce-t" }, el("b", {}, t, fresh.has(r) ? el("em", {}, "mới") : null), sub ? el("small", {}, sub) : null)));
+    });
+    if (!box.children.length) box.append(el("p", { class: "hint" }, work.length ? "Không có dòng nào khớp." : "Chưa có dòng nào. Bấm + Thêm."));
+  }
+
+  function field(c, r) {
+    const help = (HELP[cur] || {})[c.k];
+    const full = c.type === "multi" || c.type === "pos" || c.wide;
+    if (c.type === "bool") return el("div", { class: "ce-field ce-bool", "data-k": c.k },
+      el("label", {}, cellInput(c, r), el("b", {}, c.label)), help ? el("small", {}, help) : null);
+    return el("div", { class: "ce-field" + (full ? " full" : ""), "data-k": c.k },
+      el("span", { class: "ce-l" }, c.label), cellInput(c, r), help ? el("small", {}, help) : null);
+  }
+
+  function renderForm() {
+    const box = $("ceForm"); if (!box) return;
+    box.innerHTML = "";
+    const S = SCHEMA[cur], r = work[sel];
+    if (!r) { box.append(el("p", { class: "hint ce-empty" }, "Chọn một dòng bên trái, hoặc bấm “+ Thêm”.")); return; }
+    const codes = S.cols.filter(c => c.type === "code"), mainCols = S.cols.filter(c => c.type !== "code");
+    box.append(el("div", { class: "ce-fh" }, el("h3", {}, itemTitle(cur, r)), el("small", {}, `Dòng ${sel + 1} / ${work.length}`)));
+    box.append(el("div", { class: "ce-grid" }, mainCols.map(c => field(c, r))));
+    if (codes.length) {
+      const open = fresh.has(r) || unlocked.has(r) || codes.some(c => !r[c.k] && !(cur === "positions" && c.k === "code"));
+      const locked = !fresh.has(r) && !unlocked.has(r);
+      box.append(el("details", { class: "ce-codes", open: open || null },
+        el("summary", {}, "Mã kỹ thuật (nâng cao)", el("span", {}, codes.map(c => `${c.label}: ${r[c.k] || "—"}`).join(" · "))),
+        el("div", { class: "ce-grid" }, codes.map(c => {
+          const f = field(c, r);
+          if (locked) { const i = f.querySelector("input"); i.readOnly = true; i.title = "Bấm “Đổi mã” để sửa"; }
+          return f;
+        })),
+        locked ? el("p", { class: "hint" }, "Mã đã dùng trong link và báo cáo GA4. Đổi mã sẽ tách lịch sử làm đôi. ",
+          el("button", { type: "button", class: "qe-link", onclick: () => {
+            if (!confirm("Đổi mã đã dùng sẽ làm GA4 đếm kênh / sản phẩm này thành 2 dòng khác nhau. Vẫn đổi?")) return;
+            unlocked.add(r); renderForm();
+          } }, "Đổi mã"))
+          : el("p", { class: "hint" }, fresh.has(r) ? "Mã tự sinh từ tên khi để trống. Viết thường, không dấu, nối bằng dấu gạch dưới." : "Đang mở khóa: sửa cẩn thận.")));
+    }
+    const move = d => { const j = sel + d; if (j < 0 || j >= work.length) return; [work[sel], work[j]] = [work[j], work[sel]]; sel = j; touch(); renderForm(); };
+    box.append(el("div", { class: "ce-acts" },
+      el("button", { type: "button", class: "btn ghost sm", disabled: sel === 0 || null, onclick: () => move(-1) }, "↑ Lên"),
+      el("button", { type: "button", class: "btn ghost sm", disabled: sel === work.length - 1 || null, onclick: () => move(1) }, "↓ Xuống"),
+      el("button", { type: "button", class: "btn ghost sm", title: "Tạo dòng mới giống dòng này", onclick: () => {
+        const c = clone(r); codes.forEach(x => { if (x.k !== "code" || cur !== "positions") c[x.k] = ""; });
+        work.splice(sel + 1, 0, c); fresh.add(c); sel++; touch(); renderForm();
+      } }, "Nhân bản"),
+      el("span", { class: "grow" }),
+      el("button", { type: "button", class: "btn ghost sm danger", onclick: () => {
+        if (!fresh.has(r) && !confirm(`Xóa “${itemTitle(cur, r)}”? (Bấm Lưu mới có hiệu lực.)`)) return;
+        work.splice(sel, 1); sel = Math.min(sel, work.length - 1); touch(); renderForm();
+      } }, "Xóa dòng")));
   }
 
   function render() {
     renderNav();
     const m = $("main"); m.innerHTML = "";
     if (cur === "io") return renderIO(m);
+    if (cur === "history") return renderHistory(m);
     const S = SCHEMA[cur];
+    if (sel >= work.length) sel = Math.max(0, work.length - 1);
     m.append(el("h2", {}, S.title), el("p", {}, S.desc, " ", sourceNote(cur)));
-    m.append(el("div", { class: "tbar" },
-      el("button", { type: "button", class: "btn", id: "saveBtn", disabled: !dirty, onclick: save }, "Lưu"),
-      el("button", { type: "button", class: "btn ghost", id: "undoBtn", disabled: !dirty, onclick: () => { work = clone(D[cur]); dirty = false; render(); } }, "Hủy thay đổi"),
-      el("button", { type: "button", class: "btn ghost", onclick: () => { work.push(S.blank()); touch(); render(); const rows = document.querySelectorAll("#ed tbody tr"); const last = rows[rows.length - 1]; last.classList.add("new"); const f = last.querySelector("input, select"); if (f) f.focus(); } }, "+ Thêm dòng"),
+    m.append(el("div", { class: "tbar ce-bar" },
+      el("button", { type: "button", class: "btn", id: "saveBtn", disabled: !dirty, onclick: save }, DSC.isOnline() ? "Lưu cho cả team" : "Lưu"),
+      el("button", { type: "button", class: "btn ghost", id: "undoBtn", disabled: !dirty, onclick: () => { work = clone(D[cur]); fresh = new WeakSet(); unlocked = new WeakSet(); dirty = false; render(); } }, "Hủy thay đổi"),
+      el("button", { type: "button", class: "btn ghost", onclick: () => {
+        const r = S.blank(); work.push(r); fresh.add(r); sel = work.length - 1; q = ""; touch(); render();
+        const f = $("ceForm").querySelector("input:not([readonly]), select"); if (f) f.focus();
+      } }, "+ Thêm"),
       el("span", { class: "grow" }),
       D.custom.includes(cur) || D.shared.includes(cur) ? el("button", { type: "button", class: "btn ghost danger", onclick: async () => {
-        if (!confirm(D.shared.includes(cur) ? "Đưa mục này về bản gốc trong data.js cho CẢ TEAM? Bản hiện tại vẫn khôi phục được trong lịch sử Supabase." : "Bỏ mọi chỉnh sửa của mục này, quay về bản gốc trong data.js?")) return;
+        if (!confirm(D.shared.includes(cur) ? "Đưa mục này về bản gốc trong data.js cho CẢ TEAM? Bản hiện tại vẫn khôi phục được ở Lịch sử thay đổi." : "Bỏ mọi chỉnh sửa của mục này, quay về bản gốc trong data.js?")) return;
         await DSC.resetCollection(cur); D = DSC.loadData(); work = clone(D[cur]); dirty = false; render(); } }, "Về bản gốc") : null));
-    m.querySelector(".tbar #saveBtn").disabled = !dirty; m.querySelector(".tbar #undoBtn").disabled = !dirty;
 
     // Datalists for free-text columns with suggestions
     S.cols.filter(c => c.list).forEach(c => m.append(el("datalist", { id: `dl_${c.k}` }, c.list().map(v => el("option", { value: v })))));
-    const table = el("table", { class: "ed", id: "ed" },
-      el("thead", {}, el("tr", {}, el("th", {}, "#"), S.cols.map(c => el("th", {}, c.label)), el("th", {}))),
-      el("tbody", {}, work.map((r, i) => el("tr", {},
-        el("td", { class: "x hint" }, i + 1),
-        S.cols.map(c => el("td", { "data-k": c.k }, cellInput(c, r, i))),
-        el("td", { class: "x" },
-          el("button", { type: "button", title: "Lên", onclick: () => { if (i) { [work[i - 1], work[i]] = [work[i], work[i - 1]]; touch(); render(); } } }, "↑"),
-          el("button", { type: "button", title: "Xuống", onclick: () => { if (i < work.length - 1) { [work[i + 1], work[i]] = [work[i], work[i + 1]]; touch(); render(); } } }, "↓"),
-          el("button", { type: "button", title: "Xóa dòng", onclick: () => { work.splice(i, 1); touch(); render(); } }, "✕"))))));
-    m.append(el("div", { class: "tbl-wrap" }, table), el("ul", { class: "warns", id: "warns" }));
-    renderWarns();
+    m.append(el("div", { class: "ce" },
+      el("div", { class: "ce-side" },
+        work.length > 6 ? el("input", { type: "search", class: "ce-q", placeholder: "Tìm…", value: q, "aria-label": "Tìm dòng", oninput: e => { q = e.target.value; renderList(); } }) : null,
+        el("div", { class: "ce-list", id: "ceList", role: "listbox", "aria-label": S.title })),
+      el("div", { class: "ce-form card", id: "ceForm" })),
+      el("ul", { class: "warns", id: "warns" }));
+    renderList(); renderForm(); renderWarns();
+  }
+
+  // ===== History: every saved change of the shared catalog (audit_log), with restore =====
+  let histKey = "";
+  async function renderHistory(m) {
+    m.append(el("h2", {}, "Lịch sử thay đổi"),
+      el("p", {}, "Mỗi lần ai đó lưu danh mục đều được ghi lại. Sửa nhầm thì bấm “Khôi phục” để đưa mục đó về đúng như trước lần sửa."));
+    if (!DSC.isOnline()) { m.append(el("p", { class: "hint" }, "Cần kết nối Supabase để xem lịch sử.")); return; }
+    const selK = el("select", { class: "ce-hsel", "aria-label": "Lọc theo mục", onchange: e => { histKey = e.target.value; render(); } },
+      el("option", { value: "" }, "Mọi mục"), Object.entries(SCHEMA).map(([k, S]) => el("option", { value: k }, S.title)));
+    selK.value = histKey;
+    const box = el("div", { class: "ce-hist" }, el("p", { class: "hint" }, "Đang tải…"));
+    m.append(el("div", { class: "tbar" }, selK), box);
+    let rows;
+    try {
+      rows = await DSC.api("audit_log?select=id,row_key,by,at,b:before->rows,a:after->rows&tbl=eq.catalog" +
+        (histKey ? "&row_key=eq." + encodeURIComponent(histKey) : "") + "&order=at.desc&limit=60");
+    } catch (e) { box.innerHTML = ""; box.append(el("p", { class: "hint" }, "Không tải được lịch sử: " + e.message)); return; }
+    box.innerHTML = "";
+    if (!rows.length) { box.append(el("p", { class: "hint" }, "Chưa có thay đổi nào.")); return; }
+    rows.forEach((h, idx) => {
+      const S = SCHEMA[h.row_key];
+      const d = diff(h.row_key, h.b || [], h.a || []);
+      const isCurrent = !rows.slice(0, idx).some(x => x.row_key === h.row_key);
+      box.append(el("article", { class: "ce-hrow" },
+        el("div", { class: "ce-hh" }, el("b", {}, S ? S.title : h.row_key), el("small", {}, `${fmtTime(h.at)} · ${h.by || "không tên"}`),
+          isCurrent ? el("span", { class: "tag" }, "bản đang dùng") : null),
+        !h.b ? el("p", { class: "hint" }, `Lần đầu đưa lên Supabase (${(h.a || []).length} dòng).`) : el("ul", { class: "ce-diff" },
+          d.add.length ? el("li", { class: "add" }, el("b", {}, "Thêm: "), list(d.add)) : null,
+          d.del.length ? el("li", { class: "del" }, el("b", {}, "Xóa: "), list(d.del)) : null,
+          d.chg.length ? el("li", { class: "chg" }, el("b", {}, "Sửa: "), list(d.chg)) : null,
+          d.moved ? el("li", {}, "Đổi thứ tự") : null,
+          !d.add.length && !d.del.length && !d.chg.length && !d.moved ? el("li", {}, "Không đổi nội dung") : null),
+        h.b && S ? el("button", { type: "button", class: "btn ghost sm", onclick: () => restore(h) }, "Khôi phục về trước lần sửa này") : null));
+    });
+  }
+  function list(items) { const max = 6; return items.slice(0, max).join(", ") + (items.length > max ? ` và ${items.length - max} dòng khác` : ""); }
+  // What changed between two versions of a collection, by row identity
+  function diff(k, before, after) {
+    const S = SCHEMA[k]; if (!S) return { add: [], del: [], chg: [], moved: false };
+    const kb = new Map(before.map(r => [S.key(r), r])), ka = new Map(after.map(r => [S.key(r), r]));
+    const labelOf = (r, f) => itemTitle(k, r) + (f && f.length ? ` (${f.join(", ")})` : "");
+    const add = [...ka.keys()].filter(x => !kb.has(x)).map(x => labelOf(ka.get(x)));
+    const del = [...kb.keys()].filter(x => !ka.has(x)).map(x => labelOf(kb.get(x)));
+    const chg = [];
+    ka.forEach((r, x) => {
+      const o = kb.get(x); if (!o) return;
+      const fields = [...new Set([...Object.keys(o), ...Object.keys(r)])].filter(f => JSON.stringify(o[f]) !== JSON.stringify(r[f]));
+      if (fields.length) chg.push(labelOf(r, fields.map(f => (S.cols.find(c => c.k === f) || { label: f }).label)));
+    });
+    const common = [...ka.keys()].filter(x => kb.has(x)), orderB = [...kb.keys()].filter(x => ka.has(x));
+    return { add, del, chg, moved: common.join("\u0001") !== orderB.join("\u0001") };
+  }
+  async function restore(h) {
+    const S = SCHEMA[h.row_key];
+    if (!confirm(`Đưa “${S.title}” về đúng như trước lần sửa lúc ${fmtTime(h.at)} cho cả team? (Có thể khôi phục ngược lại sau.)`)) return;
+    const ok = await DSC.saveCollection(h.row_key, h.b);
+    D = DSC.loadData();
+    if (ok) toast(`Đã khôi phục “${S.title}”.`);
+    render();
   }
 
   // Where the shown rows come from, in plain words
@@ -297,8 +504,12 @@ DSC.ready().then(function () {
     const ok = await DSC.saveCollection(cur, work);
     D = DSC.loadData();
     if (!ok) { render(); return; }
-    work = clone(D[cur]); dirty = false; render();
+    work = clone(D[cur]); fresh = new WeakSet(); unlocked = new WeakSet(); dirty = false; render();
     toast(DSC.isOnline() ? "Đã lưu cho cả team." : "Đã lưu. Các trang khác dùng danh mục mới ngay trên trình duyệt này.");
+    // Fixed links depend on slots, landing pages and accounts: keep the library in step
+    if (DSC.isOnline() && ["slots", "landings", "accounts"].includes(cur)) DSC.syncFixedLinks(D).then(r => {
+      if (r.replace) toast(`${r.replace} link cố định cần cài lại trên kênh. Xem ở Kho link.`, 5000);
+    }).catch(() => {});
   }
 
   // ===== Import / export =====

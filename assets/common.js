@@ -47,7 +47,8 @@
   };
   // Positions that do not exist on a platform or duplicate another one there:
   // TikTok and Facebook video descriptions are the caption / post text itself ("").
-  const POS_HIDDEN = { tiktok: ["description", "menu"], facebook: ["description", "menu"], youtube: ["menu"], zalo: ["description"], ads: ["menu"], other: ["menu"] };
+  // Story link stickers only exist on Facebook (TikTok has none, YouTube Stories were retired, Zalo has none).
+  const POS_HIDDEN = { tiktok: ["description", "menu", "story"], facebook: ["description", "menu"], youtube: ["menu", "story"], zalo: ["description", "story"], ads: ["menu", "story"], other: ["menu"] };
   function posLabel(pos, platform) {
     const m = POS_LABEL[platform];
     return m && m[pos || ""] ? m[pos || ""] : (POS[pos] || { label: pos }).label;
@@ -307,7 +308,7 @@
   function slotMeta(d, s) {
     const a = account(d, s.m), l = landing(d, s.to);
     return { kind: "fixed", source: a && a.s, medium: s.m, content: s.pos, product: l && l.product || null,
-      account_m: s.m, position: s.pos, landing_id: s.to, title: s.where };
+      account_m: s.m, position: s.pos, landing_id: s.to, title: s.where, fields: { slot: true } };
   }
 
   // ===== Clipboard =====
@@ -341,7 +342,7 @@
     if (!DSC_URL.test(rec.url)) { if (!quiet) toast("Link không thuộc domain dsc.com.vn nên không lưu vào Kho link."); return null; }
     if (rec.short_url && !shortOk(rec.short_url)) rec = Object.assign({}, rec, { short_url: null });
     if (!rec.short_url && cachedShort(rec.url)) rec = Object.assign({}, rec, { short_url: cachedShort(rec.url) });
-    const by = await whoami();
+    const by = quiet ? me() : await whoami();
     try {
       const r = await api("rpc/save_link", { method: "POST", body: { rec: Object.assign({}, rec, { by: by || null }) } });
       document.dispatchEvent(new CustomEvent("dsc-links"));
@@ -364,12 +365,38 @@
     const rows = await api("links?select=*&id=eq." + encodeURIComponent(id));
     return rows && rows[0] || null;
   }
-  async function updateLink(id, patch) {
-    const by = await whoami();
+  async function updateLink(id, patch, quiet) {
+    const by = quiet ? me() : await whoami();
     const rows = await api("links?id=eq." + encodeURIComponent(id), { method: "PATCH",
       headers: { Prefer: "return=representation" }, body: Object.assign({}, patch, { updated_by: by || null }) });
     document.dispatchEvent(new CustomEvent("dsc-links"));
     return rows && rows[0];
+  }
+
+  // ===== Fixed links (catalog slots) inside the library =====
+  // The current URL of every planned slot is registered as kind=fixed. An older active URL of the same slot
+  // (same account + slot name) is marked "replace" until someone reinstalls the new link on the channel.
+  // Only links created from the plan (fields.slot) are managed, so hand-made bio links are left alone.
+  const isSlotLink = l => l.kind === "fixed" && l.fields && l.fields.slot;
+  async function syncFixedLinks(d) {
+    if (!isOnline()) return { added: 0, replace: 0 };
+    const links = await listLinks();
+    const byUrl = new Map(links.map(l => [l.url, l]));
+    let added = 0, replace = 0;
+    for (const s of d.slots) {
+      const a = account(d, s.m), l = landing(d, s.to);
+      if (!a || a.inactive || !l || l.state === "off") continue;
+      const url = slotUrl(d, s); if (!url) continue;
+      const hit = byUrl.get(url);
+      if (!hit) { if (await saveLink(Object.assign({ url, label: `${accountName(a)} · ${s.where}` }, slotMeta(d, s)), true)) added++; }
+      else if (isSlotLink(hit) && hit.status === "replace") await updateLink(hit.id, { status: "active" }, true).catch(() => {});
+      for (const old of links) {
+        if (isSlotLink(old) && old.status === "active" && old.account_m === s.m && old.title === s.where && old.url !== url) {
+          try { await updateLink(old.id, { status: "replace", note: old.note || `Kế hoạch đã đổi trang đích sang “${l.label}”. Cài link mới rồi bấm “Đã cài xong”.` }, true); replace++; } catch (e) {}
+        }
+      }
+    }
+    return { added, replace };
   }
 
   // ===== Quick templates: Supabase table "templates", or this browser when offline =====
@@ -477,7 +504,7 @@
     copyText, flash, loadHist, remember, toast,
     shorten, cachedShort, renderNav,
     ready, refreshCatalog, configured, isOnline, state, api, me, whoami, localOverrides, sharedInfo,
-    saveLink, listLinks, getLink, updateLink,
+    saveLink, listLinks, getLink, updateLink, syncFixedLinks,
     listTemplates, saveTemplate, deleteTemplate, useTemplate
   };
 })();

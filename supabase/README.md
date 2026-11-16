@@ -61,16 +61,9 @@ Các trình duyệt khác chỉ cần tải lại trang.
 
 ## Khôi phục khi sửa nhầm
 
-Chưa có giao diện (dự kiến ở đợt 2). Tạm thời vào **Table Editor → audit_log**, lọc `tbl` và `row_key`, copy cột `before` rồi dán lại vào bảng tương ứng. Ví dụ khôi phục danh mục trang đích:
+**Danh mục → Lịch sử thay đổi**: mỗi lần lưu hiện ai sửa, lúc nào, thêm / xóa / sửa dòng nào. Bấm **Khôi phục về trước lần sửa này** để đưa mục đó về như cũ cho cả team. Bản khôi phục cũng được ghi vào lịch sử, nên làm ngược lại được.
 
-```sql
-update catalog set rows = (
-  select before -> 'rows' from audit_log
-  where tbl = 'catalog' and row_key = 'landings' and before is not null
-  order by at desc limit 1
-), updated_by = 'khôi phục'
-where key = 'landings';
-```
+Link trong Kho link chỉ bị xóa mềm (`deleted_at`). Muốn lấy lại: Supabase → Table Editor → `links`, xóa giá trị ở cột `deleted_at`.
 
 ## Mất kết nối
 

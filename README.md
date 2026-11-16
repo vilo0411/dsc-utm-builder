@@ -6,11 +6,11 @@ Công cụ tạo link UTM cho Chứng khoán DSC, áp dụng cho 2 site: `www.ds
 
 | Trang | File | Dùng để |
 | --- | --- | --- |
-| Kho link | `thu-vien.html` | Mọi link cả team đã tạo: lọc, ghi nơi đặt, trạng thái, cảnh báo link cần thay, tải CSV. Cần Supabase. |
+| Kho link | `thu-vien.html` | Mọi link cả team đã tạo: lọc, ghi nơi đặt, trạng thái, cảnh báo link cần thay, tải CSV. 3 kiểu xem: danh sách gọn (bấm để mở chi tiết), bảng sắp xếp được, thẻ chi tiết theo kênh. Cần Supabase. |
 | Tạo link | `index.html` | Chọn kênh → vị trí → loại bài → trang đích → chiến dịch → sản phẩm. Hình minh họa điện thoại chỉ đúng chỗ dán link. Nút **Rút gọn** tạo link `is.gd` ngay trong tool. |
 | Kế hoạch dẫn khách | `ke-hoach.html` | Bản đồ hành trình 3 tầng: Thu hút (Facebook, TikTok, YouTube, Zalo + Môi giới, Quảng cáo; mỗi kênh ghi shortform / longform) → Nuôi dưỡng (Báo cáo, Dịch vụ, Khóa học Tài Chính Số) → Mở tài khoản DSC. Bấm thẻ để xem từng tuyến link. Tab **Hướng dẫn theo kênh** cho team content: đặt link theo định dạng (video ngắn / dài / livestream), từng tài khoản dẫn về đâu, in ra PDF được. Kèm chiến lược theo kênh, funnel + event GA4, cách đọc trên GA4, tab Link cố định. |
 | Quy chuẩn | `quy-chuan.html` | Quy chuẩn UTM. Các bảng mã sinh tự động từ danh mục nên luôn khớp với tool. In ra PDF được. |
-| Danh mục | `danh-muc.html` | Sửa preset: kênh, trang đích, sản phẩm, loại bài, gợi ý trang đích, link cố định, chiến dịch, domain. |
+| Danh mục | `danh-muc.html` | Sửa preset: kênh, trang đích, sản phẩm, loại bài, gợi ý trang đích, link cố định, chiến dịch, domain. Danh sách bên trái, form có giải thích bên phải; mã kỹ thuật ẩn trong mục “Mã kỹ thuật (nâng cao)” và bị khóa khi đã dùng. Tab **Lịch sử thay đổi** xem ai sửa gì và khôi phục bản cũ. |
 
 ## Dữ liệu dùng chung (Supabase)
 

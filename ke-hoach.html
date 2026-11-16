@@ -25,10 +25,10 @@
     <button type="button" role="tab" id="tabFixed" aria-selected="false">Link cố định</button>
   </div>
   <ul class="alerts" id="alerts"></ul>
+  <div class="medit-bar jhint" id="mapEditBar"></div>
 
   <!-- ===== Journey map ===== -->
   <section id="paneMap">
-    <p class="hint jhint">Rê chuột hoặc bấm vào một thẻ để làm nổi đường đi và xem chi tiết bên dưới. Độ dày mũi tên = số tuyến link trong kế hoạch, không phải traffic.</p>
     <div class="journey" id="journey">
       <svg class="jlines" id="jlines" aria-hidden="true"></svg>
       <div class="jcol">
@@ -68,7 +68,7 @@
 
   <!-- ===== Fixed links ===== -->
   <section id="paneFixed" hidden>
-    <div class="sect" style="margin-top:0"><h2>Link cố định</h2><p>Bio, nút CTA, menu của từng kênh. Copy hoặc rút gọn rồi dán theo “Cách đặt”.</p></div>
+    <div class="sect" style="margin-top:0"><h2>Link cố định</h2><p>Bio, nút CTA, menu của từng kênh. Copy hoặc rút gọn rồi dán theo “Cách đặt”. Đổi trang đích thì <a href="thu-vien.html?kind=fixed">Kho link</a> sẽ liệt kê link nào cần cài lại.</p></div>
     <div class="flt" id="flt"></div>
     <div class="slots" id="slots"></div>
     <div class="sect"><h2>Link theo bài: trang đích theo loại nội dung</h2><p>Trang Tạo link gợi ý theo thứ tự này.</p></div>
@@ -80,6 +80,8 @@
 <script src="assets/config.js"></script>
 <script src="assets/common.js"></script>
 <script src="assets/mockups.js"></script>
+<script src="assets/quick-edit.js"></script>
+<script src="assets/map-edit.js"></script>
 <script>
 // Wait for the shared catalog (Supabase) before reading it
 DSC.ready().then(function () {
@@ -123,7 +125,8 @@ DSC.ready().then(function () {
     }));
     return out.filter(r => r.t);
   }
-  const R = buildRoutes();
+  let R = buildRoutes();
+  let editor = null;              // quick edit on the map (assets/map-edit.js)
 
   // ===== Alerts: temporary / switched-off pages still in the plan =====
   function renderAlerts() {
@@ -160,7 +163,7 @@ DSC.ready().then(function () {
       const sub = D.conversions.filter(c => !c.main && c.hub === h.id);
       ch2.append(card("hub:" + h.id, "jc hub", null,
         el("div", { class: "jc-h" }, el("b", {}, h.name), el("small", {}, `${R.filter(r => r.t === h.id).length} tuyến`)),
-        el("div", { class: "pages" }, pages.map(l => el("span", { class: "pg" + (l.state === "tam" ? " temp" : "") }, DSC.landingLabel(l)))),
+        el("div", { class: "pages" }, pages.map(l => el("span", { class: "pg" + (l.state === "tam" ? " temp" : ""), "data-lid": l.id }, DSC.landingLabel(l)))),
         sub.length ? el("div", { class: "subconv" }, "Chuyển đổi phụ: ", sub.map(c => c.name).join(", ")) : null,
         el("div", { class: "next" }, el("b", {}, "→ Mở tài khoản: "), h.next || "chưa có")));
     });
@@ -186,6 +189,7 @@ DSC.ready().then(function () {
     if (mainConv) cg.append(card("goal", "jc goalc", null,
       el("small", {}, "Đích cuối"), el("b", { class: "gname" }, mainConv.name),
       el("ol", { class: "fmini" }, stepsOf(mainConv).map(s => el("li", { class: s.key ? "key" : "" }, s.step, el("code", {}, s.event || "chưa có event"))))));
+    if (editor) editor.decorate();
     drawLines();
     renderDetail();
   }
@@ -237,7 +241,10 @@ DSC.ready().then(function () {
       const p = svg("path", { d: `M${x0},${x.y0}C${xm},${x.y0} ${xm},${x.y1} ${x1},${x.y1}`, fill: "none", stroke: x.color,
         "stroke-width": (1.5 + 6 * Math.sqrt(x.w / maxW)).toFixed(1), "stroke-linecap": "round", class: "jl", "marker-end": markerFor(x.color) });
       p.dataset.from = x.from; p.dataset.to = x.to;
-      S.append(p); return p;
+      S.append(p);
+      // Wide invisible stroke: click target for the arrow while editing the map
+      if (x.from.startsWith("ch:")) { const h = svg("path", { d: p.getAttribute("d"), class: "jl-hit" }); h.dataset.from = x.from; h.dataset.to = x.to; S.append(h); }
+      return p;
     }).filter(Boolean);
     focus(selected);
   }
@@ -366,6 +373,7 @@ DSC.ready().then(function () {
       el("dl", {}, el("dt", {}, "Chỉ số theo dõi"), el("dd", {}, ch.kpi || "—"))));
 
     box.append(el("h3", { class: "g-h3" }, "1. Sơ đồ: tài khoản nào dẫn về đâu"), guideFlow(ch, accts));
+    if (editor) editor.decorateGuide(box.querySelector(".gflow"), ch);
 
     // Formats: where the link goes and what to say
     const fs = formatsOf(ch);
@@ -424,7 +432,9 @@ DSC.ready().then(function () {
     });
     const siteOf = a => { const ss = [...new Set(links.filter(x => x.a === a).map(x => x.l.site))]; return ss.length === 1 ? ss[0] : ss.length ? "both" : "none"; };
     const GROUPS = [["Web chính", "Dẫn về web DSC"], ["Tài Chính Số", "Dẫn về Tài Chính Số"], ["both", "Dẫn về cả hai site"], ["none", "Chưa có link"]];
-    const pages = [...new Set(links.map(x => x.l))].sort((p, q) => D.landings.indexOf(p) - D.landings.indexOf(q));
+    // While editing, every live page is a drop target, not only the ones already linked
+    const editing = editor && editor.isOn();
+    const pages = [...new Set(links.map(x => x.l).concat(editing ? DSC.activeLandings(D) : []))].sort((p, q) => D.landings.indexOf(p) - D.landings.indexOf(q));
     const sites = [...new Set(pages.map(l => l.site))];
     const node = (id, cls, ...kids) => el("div", { class: "gf-n " + cls, "data-gid": id }, kids);
     const wrap = el("div", { class: "gflow" },
@@ -434,7 +444,7 @@ DSC.ready().then(function () {
           list.map(a => node("a:" + a.s + "|" + a.m, "acct", icon(a.p), el("span", {}, a.name)))) : null; })),
       el("div", { class: "gf-col" }, el("div", { class: "gf-t" }, "Trang đích"),
         sites.map(site => el("div", { class: "gf-grp" }, el("div", { class: "gf-gl", style: { "--s": SITE_COLOR(site) } }, site === "Web chính" ? "Web DSC" : site),
-          pages.filter(l => l.site === site).map(l => node("l:" + l.id, "pagen" + (l.id === goalLanding ? " is-goal" : "") + (l.state === "tam" ? " temp" : ""), el("b", {}, DSC.landingLabel(l)),
+          pages.filter(l => l.site === site).map(l => node("l:" + l.id, "pagen" + (l.id === goalLanding ? " is-goal" : "") + (l.state === "tam" ? " temp" : "") + (links.some(x => x.l === l) ? "" : " unused"), el("b", {}, DSC.landingLabel(l)),
             el("small", {}, `${links.filter(x => x.l === l).length} tuyến`)))))),
       el("div", { class: "gf-col end" }, el("div", { class: "gf-t" }, "Đích cuối"), node("goal", "goal", el("small", {}, "Đích cuối"), el("b", {}, mainConv ? mainConv.name : "Mở tài khoản"))));
     wrap._links = links;
@@ -454,10 +464,17 @@ DSC.ready().then(function () {
     const path = (a, b, color, dash, w, key) => {
       const x0 = a.r, x1 = b.l, xm = (x0 + x1) / 2;
       const e = svg("path", { d: `M${x0},${a.y}C${xm},${a.y} ${xm},${b.y} ${x1},${b.y}`, fill: "none", stroke: color, "stroke-width": w, "stroke-dasharray": dash || null, "stroke-linecap": "round" });
-      e.dataset.k = key; S.append(e);
+      e.dataset.k = key; S.append(e); return e;
     };
     const links = wrap._links || [];
-    links.forEach(x => { const a = box("a:" + x.a.s + "|" + x.a.m), b = box("l:" + x.l.id); if (a && b) path(a, b, SITE_COLOR(x.l.site), x.fixed ? "" : x.script ? "1 5" : "6 4", 2.5, "a:" + x.a.s + "|" + x.a.m + " l:" + x.l.id); });
+    links.forEach(x => {
+      const a = box("a:" + x.a.s + "|" + x.a.m), b = box("l:" + x.l.id); if (!a || !b) return;
+      const e = path(a, b, SITE_COLOR(x.l.site), x.fixed ? "" : x.script ? "1 5" : "6 4", 2.5, "a:" + x.a.s + "|" + x.a.m + " l:" + x.l.id);
+      // Wide invisible stroke: click target for the line while editing
+      const h = svg("path", { d: e.getAttribute("d"), class: "jl-hit" });
+      Object.assign(h.dataset, { k: e.dataset.k, acct: x.a.s + "|" + x.a.m, lid: x.l.id, fixed: x.fixed ? "1" : "", where: x.label || "" });
+      S.append(h);
+    });
     const g = box("goal");
     [...new Set(links.map(x => x.l))].forEach(l => { const b = box("l:" + l.id); if (b && g) path(b, g, "#1d4130", false, 1.5, "l:" + l.id + " goal"); });
     // Hover an account or page to isolate its lines
@@ -530,11 +547,17 @@ DSC.ready().then(function () {
     TABS.forEach(([t, p]) => { $(t).setAttribute("aria-selected", String(t === tab)); $(p).hidden = t !== tab; });
     if (tab === "tabMap") drawLines();
     if (tab === "tabGuide") drawGuideFlow();
+    if (editor) editor.setTab(tab);
     history.replaceState(null, "", "#" + { tabMap: "ban-do", tabGuide: "huong-dan", tabFixed: "link-co-dinh" }[tab]);
   }
   TABS.forEach(([t]) => $(t).addEventListener("click", () => show(t)));
 
   renderAlerts(); renderJourney(); renderStrategy(); renderFunnels(); renderGa4(); renderGuide(); renderFixed();
+  editor = DSC.MapEdit({ D, journey: $("journey"), guide: $("guide"), bar: $("mapEditBar"), goalLanding, routes: () => R,
+    refresh: () => { R = buildRoutes(); renderAlerts(); renderJourney(); renderStrategy(); renderGuide(); renderFixed(); },
+    // Show one channel in "Hướng dẫn theo kênh" (e.g. right after adding an account there)
+    showGuide: id => { guideCh = id; renderGuide(); requestAnimationFrame(drawGuideFlow); } });
+  editor.setTab(TABS.find(([t]) => $(t).getAttribute("aria-selected") === "true")[0]);
   show({ "#link-co-dinh": "tabFixed", "#huong-dan": "tabGuide" }[location.hash] || "tabMap");
   if (document.fonts) document.fonts.ready.then(() => { drawLines(); drawGuideFlow(); });
   let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { if (!$("paneMap").hidden) drawLines(); drawGuideFlow(); }, 120); });

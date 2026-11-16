@@ -387,6 +387,8 @@
     function commit(rows, extra) {
       const w = validate(key, rows, D);
       if (w.length && !confirm(`Còn ${w.length} cảnh báo:\n- ${w.slice(0, 5).map(x => x[1]).join("\n- ")}\n\nVẫn lưu?`)) return false;
+      // Caller keeps its own draft (e.g. quick edit on the plan map): hand the rows over instead of saving
+      if (opts.commit) { opts.commit(key, rows, extra || {}); return true; }
       DSC.saveCollection(key, rows);
       Object.entries(extra || {}).forEach(([k, v]) => DSC.saveCollection(k, v));
       return true;
@@ -405,7 +407,8 @@
         el("details", { class: "qe-addbox", open: opts.mode !== "edit" || null }, el("summary", {}, S.addTitle(ctx)), qForm),
         editBox),
       el("footer", { class: "qe-f" },
-        el("p", { class: "hint" }, "Lưu trên trình duyệt này. Muốn cả team dùng: ", el("a", { href: "danh-muc.html#io" }, "Danh mục → Xuất data.js"), "."),
+        opts.commit ? el("p", { class: "hint" }, "Thêm vào bản nháp đang sửa. Bấm “Lưu” trên thanh sửa để lưu.")
+          : el("p", { class: "hint" }, "Lưu trên trình duyệt này. Muốn cả team dùng: ", el("a", { href: "danh-muc.html#io" }, "Danh mục → Xuất data.js"), "."),
         el("button", { type: "button", class: "btn ghost", onclick: cancel }, "Đóng"),
         saveBtn));
     dlg.addEventListener("cancel", e => { e.preventDefault(); cancel(); });   // Esc

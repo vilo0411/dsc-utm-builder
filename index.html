@@ -325,9 +325,11 @@ DSC.ready().then(function () {
     const planned = a && fixedSlot ? D.slots.filter(s => s.m === a.m && s.pos === position) : [];
     $("stSlot").hidden = !fixedSlot || !a;
     const sb = $("slotBox"); sb.innerHTML = "";
+    // Library view of this account's fixed links
+    const libHref = a ? "thu-vien.html?kind=fixed&acct=" + encodeURIComponent(a.m) : "thu-vien.html";
     if (fixedSlot && a) {
       sb.append(el("p", {}, el("b", {}, planned.length ? "Link cố định đã có trong kế hoạch:" : "Chưa có link cố định cho vị trí này."),
-        " ", el("a", { href: "ke-hoach.html" }, "Xem kế hoạch")));
+        " ", planned.length ? el("a", { href: libHref }, "Xem trong Kho link") : el("a", { href: "ke-hoach.html" }, "Xem kế hoạch")));
       planned.forEach(s => {
         const u = DSC.slotUrl(D, s), l = DSC.landing(D, s.to);
         sb.append(el("div", { class: "slotline" },
@@ -396,12 +398,27 @@ DSC.ready().then(function () {
     // Output
     const pairs = [["utm_source", source, "source", "Nền tảng"], ["utm_medium", medium, "medium", "Tài khoản / hình thức"],
       ["utm_campaign", campaign, "campaign", "Chiến dịch"], ["utm_content", content, "content", "Bài / vị trí"], ["utm_product", product, "product", "Sản phẩm"]];
-    const complete = todo.length === 0;
+    let complete = todo.length === 0;
     const box = $("url"); box.innerHTML = "";
+    let full = complete ? makeUrl(u, pairs) : "";
+    // Same channel + position + landing page + product + content as a planned fixed link:
+    // nothing new to create, point to the existing one in the library
+    const pageKey = x => { try { const v = new URL(x); return (v.hostname.toLowerCase().replace(/^www\./, "") + v.pathname).replace(/\/+$/, ""); } catch (e) { return ""; } };
+    const dup = full && fixedSlot ? planned.find(s => {
+      const sa = DSC.account(D, s.m), sl = DSC.landing(D, s.to);
+      if (!sa || !sl) return false;
+      return sa.s === source && sa.m === medium &&                                  // channel
+        s.pos === position && s.pos === content &&                                   // position + content
+        ($("preset").value === s.to || pageKey(sl.url) === pageKey(u.href)) &&       // landing page
+        (sl.product || "") === (product || "");                                      // product
+    }) : null;
+    if (dup) {
+      complete = false; full = "";
+      box.append(el("b", {}, `Link này đã có sẵn (${dup.where}), không cần tạo lại.`), " ",
+        "Bấm Copy ở mục link cố định hoặc ", el("a", { href: libHref }, "mở Kho link"), ".");
+    }
     box.classList.toggle("pending", !complete);
-    let full = "";
     if (complete) {
-      full = makeUrl(u, pairs);
       const qi = full.indexOf("?");
       box.append(qi < 0 ? full : full.slice(0, qi));
       if (qi >= 0) full.slice(qi + 1).split("&").forEach((kv, i) => {
@@ -410,7 +427,7 @@ DSC.ready().then(function () {
         box.append((i ? "&" : "?") + k + "=");
         box.append(p ? el("span", { class: "v k-" + p[2] }, decodeURIComponent(v)) : v);
       });
-    } else box.textContent = `Còn ${todo.length} bước. Làm xong, link sẽ hiện ở đây.`;
+    } else if (!dup) box.textContent = `Còn ${todo.length} bước. Làm xong, link sẽ hiện ở đây.`;
     const list = $("todo"); list.innerHTML = "";
     checks.forEach(c => list.append(el("li", { class: c.ok ? "done" : "" }, c.text)));
     warns.forEach(x => list.append(el("li", { class: "warn" }, x)));

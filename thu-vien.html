@@ -34,6 +34,7 @@
       <select id="fBy" aria-label="Người tạo"></select>
     </div>
     <div class="lib-sum">
+      <div class="flt lib-views" id="fView" role="group" aria-label="Chế độ xem"></div>
       <span id="count" class="hint"></span>
       <span class="grow"></span>
       <button type="button" class="btn ghost sm" id="reset">Bỏ lọc</button>
@@ -67,6 +68,15 @@ DSC.ready().then(function () {
   const qs = new URLSearchParams(location.search);
   ["kind", "status", "plat", "acct", "camp", "land", "by", "q"].forEach(k => { if (qs.get(k)) f[k] = qs.get(k); });
 
+  // View modes; the last one used is remembered on this browser
+  // Layouts (grouping is done with the filters above): compact list, sortable table, detailed cards per channel
+  const VIEWS = [["list", "Danh sách gọn"], ["table", "Bảng"], ["card", "Thẻ chi tiết"]];
+  const VKEY = "dsc_utm_lib_view";
+  let view = qs.get("view") || (() => { try { return localStorage.getItem(VKEY); } catch (e) { return ""; } })() || "list";
+  if (!VIEWS.some(v => v[0] === view)) view = "list";
+  const openRows = new Set();   // compact list: rows expanded to full detail
+  let sortK = "date", sortDir = -1;
+
   if (!DSC.isOnline()) {
     const box = $("offline"); box.hidden = false;
     box.append(DSC.configured()
@@ -82,10 +92,14 @@ DSC.ready().then(function () {
   const landOf = l => l.landing_id ? DSC.landing(D, l.landing_id) : null;
   function base(u) { try { const x = new URL(u); return (x.hostname.toLowerCase().replace(/^www\./, "") + x.pathname).replace(/\/+$/, ""); } catch (e) { return ""; } }
   function fmtDate(t) { try { return new Date(t).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }); } catch (e) { return ""; } }
+  // Planned fixed slot behind a fixed link (account + slot name)
+  const slotOf = l => l.kind === "fixed" ? D.slots.find(s => s.m === l.account_m && s.where === l.title) : null;
+  const isSlotLink = l => l.kind === "fixed" && l.fields && l.fields.slot;
   // Why an active link needs attention (empty when fine)
   function problem(l) {
-    if (l.status === "replace") return "Đã đánh dấu cần thay.";
+    if (l.status === "replace") return isSlotLink(l) && slotOf(l) ? "Kế hoạch đã đổi link này, cần cài link mới trên kênh." : "Đã đánh dấu cần thay.";
     if (l.status !== "active") return "";
+    if (isSlotLink(l) && !slotOf(l)) return "Link cố định không còn trong kế hoạch.";
     const lp = landOf(l);
     if (l.landing_id && !lp) return "Trang đích không còn trong Danh mục.";
     if (lp && lp.state === "off") return `Trang đích “${lp.label}” đã tắt.`;
@@ -97,6 +111,7 @@ DSC.ready().then(function () {
 
   // ===== Load =====
   async function load() {
+    try { await DSC.syncFixedLinks(D); } catch (e) { /* the list below still loads */ }
     try { links = await DSC.listLinks(); }
     catch (e) { $("offline").hidden = false; $("offline").textContent = "Không tải được Kho link: " + e.message; return; }
     $("bar").hidden = false;
@@ -158,28 +173,105 @@ DSC.ready().then(function () {
   }
 
   // ===== List =====
+  function renderViews() {
+    const box = $("fView"); box.innerHTML = "";
+    box.append(el("span", { class: "lib-vl" }, "Xem:"));
+    VIEWS.forEach(([v, t]) => box.append(el("button", { type: "button", class: "chip", "aria-pressed": String(view === v),
+      onclick: () => { view = v; shown = PAGE; try { localStorage.setItem(VKEY, v); } catch (e) {} render(); } }, t)));
+  }
+
+  function statusCounts(list) {
+    const n = st => list.filter(l => l.status === st).length;
+    return [n("replace") ? `${n("replace")} cần thay` : "", n("retired") ? `${n("retired")} ngưng` : ""].filter(Boolean).join(" · ");
+  }
+
   function render() {
-    renderAlerts();
+    renderAlerts(); renderViews();
     const rows = filtered();
     $("count").textContent = `${rows.length} / ${links.length} link`;
     const box = $("list"); box.innerHTML = "";
+    box.className = view === "table" ? "lib-tbl-wrap" : view === "list" ? "lib-ul" : "slots lib";
     if (!links.length) {
       box.append(el("p", { class: "hint" }, "Chưa có link nào. Link được lưu vào đây khi bạn bấm Copy hoặc Rút gọn ở trang Tạo link, Kế hoạch."));
       $("moreWrap").hidden = true; return;
     }
     if (!rows.length) { box.append(el("p", { class: "hint" }, "Không có link nào khớp bộ lọc.")); $("moreWrap").hidden = true; return; }
-    const page = rows.slice(0, shown);
-    // Group by account, newest group first (rows are already newest first)
+    $("moreWrap").hidden = rows.length <= shown;
+    if (view === "table") return renderTable(box, rows);
+    if (view === "list") return renderCompact(box, rows);
+    // Detailed cards, one card per channel
     const groups = new Map();
-    page.forEach(l => { const k = l.account_m || l.medium || "?"; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(l); });
+    rows.slice(0, shown).forEach(l => { const k = l.account_m || l.medium || "?"; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(l); });
     groups.forEach(list => {
-      const l0 = list[0], p = platOf(l0), P = PLATFORMS[p] || PLATFORMS.other, a = acctOf(l0);
-      const card = el("article", { class: "card acard", style: { "--c": P.color } },
-        el("div", { class: "acard-h" }, icon(p), el("b", {}, acctLabel(l0)), el("small", {}, [a && a.owner, `${list.length} link`].filter(Boolean).join(" · "))));
+      const l0 = list[0], p = platOf(l0), a = acctOf(l0);
+      const card = el("article", { class: "card acard", style: { "--c": (PLATFORMS[p] || PLATFORMS.other).color } },
+        el("div", { class: "acard-h" }, icon(p), el("b", {}, acctLabel(l0)),
+          el("small", {}, [a && a.owner, `${list.length} link`, statusCounts(list)].filter(Boolean).join(" · "))));
       list.forEach(l => card.append(row(l, a)));
       box.append(card);
     });
-    $("moreWrap").hidden = rows.length <= shown;
+  }
+
+  // ===== Compact list: one line per link, click to expand the full detail =====
+  function renderCompact(box, rows) {
+    rows.slice(0, shown).forEach(l => {
+      const p = platOf(l), lp = landOf(l), short = l.short_url || DSC.cachedShort(l.url), warn = problem(l), open = openRows.has(l.id);
+      const toggle = () => { open ? openRows.delete(l.id) : openRows.add(l.id); render(); };
+      box.append(el("div", { class: "lib-li" + (open ? " open" : "") + (l.status === "retired" ? " off" : "") + (warn ? " warn" : ""), style: { "--c": (PLATFORMS[p] || PLATFORMS.other).color } },
+        el("div", { class: "lib-li-h" },
+          el("button", { type: "button", class: "lib-li-main", "aria-expanded": String(open), title: open ? "Thu gọn" : "Xem chi tiết", onclick: toggle },
+            el("span", { class: "lib-li-ico" }, icon(p)),
+            el("span", { class: "lib-li-t" },
+              el("b", {}, l.title || l.label || displayUrl(l.url), l.kind === "fixed" ? el("span", { class: "tag fix" }, "Cố định") : null),
+              el("small", {}, [acctLabel(l), lp ? "→ " + DSC.landingLabel(lp) : "", l.campaign, [l.created_by, fmtDate(l.created_at)].filter(Boolean).join(", ")].filter(Boolean).join(" · "))),
+            el("span", { class: "lib-li-url", title: l.url }, short ? short.replace(/^https?:\/\//, "") : displayUrl(l.url)),
+            el("span", { class: "lib-badge s-" + l.status }, warn && l.status === "active" ? "Cần xử lý" : STATUS[l.status]),
+            el("span", { class: "lib-li-car", "aria-hidden": "true" }, open ? "▾" : "▸")),
+          el("button", { type: "button", class: "btn sm", onclick: e => DSC.copyText(short || l.url, e.currentTarget) }, short ? "Copy ngắn" : "Copy")),
+        open ? row(l, acctOf(l)) : null));
+    });
+  }
+
+  // ===== Table view: one line per link, sortable =====
+  const COLS = [
+    ["title", "Tiêu đề", l => (l.title || l.label || "").toLowerCase()],
+    ["acct", "Kênh", l => acctLabel(l).toLowerCase()],
+    ["land", "Trang đích", l => (DSC.landingLabel(landOf(l)) || l.url).toLowerCase()],
+    ["camp", "Chiến dịch", l => (l.campaign || "").toLowerCase()],
+    ["status", "Trạng thái", l => ({ replace: 0, active: 1, retired: 2 })[l.status]],
+    ["by", "Người tạo", l => (l.created_by || "").toLowerCase()],
+    ["date", "Ngày tạo", l => l.created_at || ""],
+    ["placed", "Đặt ở", l => (l.placed_at || "").toLowerCase()]
+  ];
+  function renderTable(box, rows) {
+    const col = COLS.find(c => c[0] === sortK) || COLS[6];
+    const sorted = rows.slice().sort((a, b) => { const x = col[2](a), y = col[2](b); return (x < y ? -1 : x > y ? 1 : 0) * sortDir; });
+    const th = ([k, t]) => el("th", { "aria-sort": sortK === k ? (sortDir > 0 ? "ascending" : "descending") : null },
+      el("button", { type: "button", onclick: () => { if (sortK === k) sortDir = -sortDir; else { sortK = k; sortDir = k === "date" ? -1 : 1; } render(); } },
+        t, sortK === k ? (sortDir > 0 ? " ▲" : " ▼") : ""));
+    const tb = el("tbody");
+    sorted.slice(0, shown).forEach(l => {
+      const lp = landOf(l), short = l.short_url || DSC.cachedShort(l.url), warn = problem(l), p = platOf(l);
+      const st = el("select", { class: "lib-status s-" + l.status, "aria-label": "Trạng thái", onchange: e => patch(l, { status: e.target.value }) },
+        Object.entries(STATUS).map(([v, t]) => el("option", { value: v }, t)));
+      st.value = l.status;
+      tb.append(el("tr", { class: (l.status === "retired" ? "off " : "") + (warn ? "warn" : "") },
+        el("td", { class: "t" }, el("b", {}, l.title || l.label || displayUrl(l.url)), " ",
+          el("span", { class: "tag" + (l.kind === "fixed" ? " fix" : "") }, KIND[l.kind] || l.kind),
+          warn ? el("div", { class: "warnline" }, warn) : null,
+          el("div", { class: "lk", title: l.url }, short ? short.replace(/^https?:\/\//, "") : displayUrl(l.url))),
+        el("td", {}, el("span", { class: "lib-ch", style: { "--c": (PLATFORMS[p] || PLATFORMS.other).color } }, icon(p), acctLabel(l))),
+        el("td", {}, lp ? DSC.landingLabel(lp) : displayUrl((l.url || "").split("?")[0])),
+        el("td", {}, l.campaign || el("span", { class: "hint" }, "—")),
+        el("td", {}, st),
+        el("td", {}, l.created_by || ""),
+        el("td", { class: "nw" }, fmtDate(l.created_at)),
+        el("td", { class: "placed" }, l.placed_at ? (/^https?:\/\//.test(l.placed_at) ? el("a", { href: l.placed_at, target: "_blank", rel: "noopener" }, "Mở ↗") : l.placed_at) : el("span", { class: "hint" }, "—")),
+        el("td", { class: "nw" },
+          el("button", { type: "button", class: "btn sm", onclick: e => DSC.copyText(short || l.url, e.currentTarget) }, short ? "Copy ngắn" : "Copy"), " ",
+          el("a", { class: "qe-link", href: "index.html?from=" + encodeURIComponent(l.id) }, "Tạo tương tự"))));
+    });
+    box.append(el("table", { class: "lib-tbl" }, el("thead", {}, el("tr", {}, COLS.map(th), el("th", {}))), tb));
   }
 
   function row(l, a) {
@@ -193,20 +285,22 @@ DSC.ready().then(function () {
       el("div", {},
         el("div", { class: "t" }, l.title || l.label || displayUrl(l.url), " ",
           el("span", { class: "tag" + (l.kind === "fixed" ? " fix" : "") }, KIND[l.kind] || l.kind)),
+        view !== "card" ? el("div", { class: "how" }, el("span", { class: "lib-ch", style: { "--c": (PLATFORMS[platOf(l)] || PLATFORMS.other).color } }, icon(platOf(l)), acctLabel(l))) : null,
         el("div", { class: "how" }, [
           lp ? "→ " + DSC.landingLabel(lp) : l.url ? "→ " + displayUrl(l.url.split("?")[0]) : "",
           l.campaign ? "Chiến dịch: " + l.campaign : "",
           l.product && (!lp || DSC.productName(D, l.product) !== lp.label) ? DSC.productName(D, l.product) : "",
           [l.created_by, fmtDate(l.created_at)].filter(Boolean).join(", ")
         ].filter(Boolean).join(" · ")),
-        warn ? el("div", { class: "how warnline" }, warn, " ",
-          el("a", { href: "index.html?from=" + encodeURIComponent(l.id) }, l.kind === "fixed" ? "Tạo link mới để cài lại" : "Tạo link thay thế")) : null,
+        reinstall(l) || (warn ? el("div", { class: "how warnline" }, warn, " ",
+          el("a", { href: "index.html?from=" + encodeURIComponent(l.id) }, l.kind === "fixed" ? "Tạo link mới để cài lại" : "Tạo link thay thế")) : null),
         short ? el("div", { class: "lk s" }, short.replace(/^https?:\/\//, "")) : null,
         el("div", { class: "lk" }, l.url),
         el("div", { class: "lib-edit" }, placed, statusSel),
         l.note ? el("div", { class: "how" }, "Ghi chú: ", l.note) : null,
         el("div", { class: "lib-acts" },
           el("a", { class: "qe-link", href: "index.html?from=" + encodeURIComponent(l.id), title: "Mở trang Tạo link với các lựa chọn của link này" }, "Tạo tương tự"),
+          isSlotLink(l) && slotOf(l) ? el("a", { class: "qe-link", href: "danh-muc.html?k=" + encodeURIComponent(`${l.account_m}|${l.title}`) + "#slots", title: "Đổi trang đích hoặc cách đặt của link cố định này" }, "Sửa trong kế hoạch") : null,
           el("button", { type: "button", class: "qe-link", "aria-expanded": String(open), onclick: () => { open ? peeks.delete(l.id) : peeks.add(l.id); render(); } }, open ? "Ẩn hình" : "Xem vị trí"),
           el("button", { type: "button", class: "qe-link", onclick: () => { const n = prompt("Ghi chú cho link này:", l.note || ""); if (n !== null) patch(l, { note: n.trim() || null }); } }, l.note ? "Sửa ghi chú" : "Ghi chú"),
           el("button", { type: "button", class: "qe-link danger", onclick: () => { if (confirm("Xóa link này khỏi Kho link? (Link vẫn hoạt động nếu đã đăng.)")) patch(l, { deleted_at: new Date().toISOString() }); } }, "Xóa")),
@@ -219,12 +313,28 @@ DSC.ready().then(function () {
           : el("button", { type: "button", class: "btn ghost sm", onclick: e => doShorten(l, e.currentTarget) }, "Rút gọn")));
   }
 
-  async function patch(l, p) {
+  // A planned fixed link that changed: show the new link and how to install it, then "Đã cài xong"
+  function reinstall(l) {
+    const s = isSlotLink(l) && l.status === "replace" ? slotOf(l) : null;
+    if (!s) return null;
+    const url = DSC.slotUrl(D, s), nl = links.find(x => x.url === url), short = (nl && nl.short_url) || DSC.cachedShort(url);
+    return el("div", { class: "reinst" },
+      el("b", {}, "Cần cài lại trên kênh"),
+      el("div", { class: "how" }, "Cách đặt: ", s.how),
+      el("div", { class: "how" }, "Link mới → ", DSC.landingLabel(DSC.landing(D, s.to))),
+      el("div", { class: "lk s" }, (short || url).replace(/^https?:\/\//, "")),
+      el("div", { class: "reinst-b" },
+        el("button", { type: "button", class: "btn sm", onclick: e => DSC.copyText(short || url, e.currentTarget) }, short ? "Copy link mới (ngắn)" : "Copy link mới"),
+        short ? null : el("button", { type: "button", class: "btn ghost sm", onclick: async e => { e.currentTarget.disabled = true; try { await DSC.shorten(url); links = await DSC.listLinks(); } catch (err) {} render(); } }, "Rút gọn"),
+        el("button", { type: "button", class: "btn ghost sm", onclick: () => patch(l, { status: "retired" }, "Đã ghi nhận: link cũ ngưng dùng.") }, "Đã cài xong")));
+  }
+
+  async function patch(l, p, msg) {
     try {
       const r = await DSC.updateLink(l.id, p);
       if (p.deleted_at) links = links.filter(x => x.id !== l.id);
       else Object.assign(l, r || p);
-      toast(p.deleted_at ? "Đã xóa khỏi Kho link." : "Đã lưu.");
+      toast(msg || (p.deleted_at ? "Đã xóa khỏi Kho link." : "Đã lưu."));
     } catch (e) { toast("Không lưu được: " + e.message, 4000); }
     fillFilters(); render();
   }
