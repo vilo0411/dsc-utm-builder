@@ -178,13 +178,28 @@
       });
       const text = await r.text();
       let data = null; try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
-      if (!r.ok) throw new Error((data && (data.message || data.hint || data.error)) || `HTTP ${r.status}`);
+      if (!r.ok) {
+        const msg = (data && (data.message || data.hint || data.error)) || `HTTP ${r.status}`;
+        throw new Error(FRIENDLY.find(([re]) => re.test(msg)) ? FRIENDLY.find(([re]) => re.test(msg))[1] : msg);
+      }
       return data;
     } catch (e) {
       if (e.name === "AbortError") throw new Error("máy chủ không phản hồi");
       throw e;
     } finally { clearTimeout(t); }
   }
+  // Database refusals (supabase/schema.sql, hardening section) in plain words
+  const FRIENDLY = [
+    [/catalog_valid/, "danh mục có trang đích / domain ngoài dsc.com.vn, hoặc dữ liệu quá lớn"],
+    [/links_valid/, "link không thuộc domain dsc.com.vn, link rút gọn không phải is.gd / v.gd, hoặc ghi chú quá dài"],
+    [/templates_valid/, "tên mẫu trống / quá dài, hoặc trang đích ngoài dsc.com.vn"],
+    [/permission denied/i, "không có quyền sửa trường này"]
+  ];
+  // The only places the tool accepts links from: DSC pages and the two shorteners it calls
+  const SHORT_OK = /^https:\/\/(is|v)\.gd\/[A-Za-z0-9_-]{1,40}$/;
+  const DSC_URL = /^https?:\/\/([a-z0-9-]+\.)*dsc\.com\.vn(:[0-9]+)?([/?#]|$)/i;
+  const shortOk = u => !!u && SHORT_OK.test(u);
+
   // Every page waits for this before reading the catalog
   let readyP = null;
   function ready() {
@@ -321,21 +336,26 @@
 
   // ===== Link library (Supabase table "links") =====
   // Upsert by URL through rpc/save_link: an existing link keeps its creator and status.
-  async function saveLink(rec) {
+  async function saveLink(rec, quiet) {
     if (!rec || !rec.url || !isOnline()) return null;
+    if (!DSC_URL.test(rec.url)) { if (!quiet) toast("Link không thuộc domain dsc.com.vn nên không lưu vào Kho link."); return null; }
+    if (rec.short_url && !shortOk(rec.short_url)) rec = Object.assign({}, rec, { short_url: null });
     if (!rec.short_url && cachedShort(rec.url)) rec = Object.assign({}, rec, { short_url: cachedShort(rec.url) });
     const by = await whoami();
     try {
       const r = await api("rpc/save_link", { method: "POST", body: { rec: Object.assign({}, rec, { by: by || null }) } });
       document.dispatchEvent(new CustomEvent("dsc-links"));
       return r;
-    } catch (e) { toast("Chưa lưu được link vào Kho link (" + e.message + ").", 5000); return null; }
+    } catch (e) { if (!quiet) toast("Chưa lưu được link vào Kho link (" + e.message + ").", 5000); return null; }
   }
   async function listLinks() {
     if (!isOnline()) return [];
     const rows = await api("links?select=*&deleted_at=is.null&order=created_at.desc&limit=5000");
     const c = shortCache(); let n = 0;
-    rows.forEach(r => { if (r.short_url && c[r.url] !== r.short_url) { c[r.url] = r.short_url; n++; } });
+    rows.forEach(r => {
+      if (r.short_url && !shortOk(r.short_url)) r.short_url = null;   // never offer a foreign short link
+      if (r.short_url && c[r.url] !== r.short_url) { c[r.url] = r.short_url; n++; }
+    });
     if (n) try { localStorage.setItem(SKEY, JSON.stringify(c)); } catch (e) {}
     return rows;
   }
@@ -386,13 +406,13 @@
   // ===== Shortener: is.gd (CORS *), fallback v.gd. Same long URL always returns the cached short link. =====
   const SKEY = "dsc_utm_short_v1";
   function shortCache() { try { return JSON.parse(localStorage.getItem(SKEY) || "{}"); } catch (e) { return {}; } }
-  function cachedShort(long) { return shortCache()[long] || ""; }
+  function cachedShort(long) { const s = shortCache()[long] || ""; return shortOk(s) ? s : ""; }
   async function callShortener(host, long) {
     const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 8000);
     try {
       const r = await fetch(`https://${host}/create.php?format=json&url=${encodeURIComponent(long)}`, { signal: ctrl.signal });
       const j = await r.json();
-      if (j.shorturl) return j.shorturl;
+      if (shortOk(j.shorturl)) return j.shorturl;
       throw new Error(j.errormessage || "Không rút gọn được");
     } finally { clearTimeout(t); }
   }
@@ -402,7 +422,7 @@
     if (isOnline()) {
       try {
         const rows = await api("links?select=short_url&short_url=not.is.null&url=eq." + encodeURIComponent(long), { timeout: 5000 });
-        if (rows && rows[0] && rows[0].short_url) { cacheShort(long, rows[0].short_url); return rows[0].short_url; }
+        if (rows && rows[0] && shortOk(rows[0].short_url)) { cacheShort(long, rows[0].short_url); return rows[0].short_url; }
       } catch (e) { /* fall through to the shortener */ }
     }
     let short = "", lastErr = null;

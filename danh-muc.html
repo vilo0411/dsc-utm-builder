@@ -372,9 +372,9 @@ DSC.ready().then(function () {
     DSC.loadHist().forEach(h => items.set(h.url, { url: h.url, label: h.label }));
     Object.entries(shorts).forEach(([url, short_url]) => items.set(url, Object.assign(items.get(url) || { url }, { short_url })));
     let n = 0;
-    for (const it of items.values()) { if (await DSC.saveLink(it)) n++; }
+    for (const it of items.values()) { if (await DSC.saveLink(it, true)) n++; }
     D = DSC.loadData(); render();
-    toast(`Đã đưa lên ${res.filter(Boolean).length}/${DSC.COLLECTIONS.length} mục danh mục và ${n} link.`, 4000);
+    toast(`Đã đưa lên ${res.filter(Boolean).length}/${DSC.COLLECTIONS.length} mục danh mục và ${n}/${items.size} link` + (n < items.size ? " (link ngoài dsc.com.vn được bỏ qua)." : "."), 5000);
   }
   document.addEventListener("dsc-save-failed", () => { D = DSC.loadData(); });
   function toast(t) { const x = el("div", { class: "toast", role: "status" }, t); document.body.append(x); setTimeout(() => x.remove(), 2600); }

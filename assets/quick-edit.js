@@ -4,7 +4,7 @@
 //      Saved at once and handed back to the page so it can select the new item.
 //   2. Edit list: table of existing rows (filtered to the current platform for channels), sticky header,
 //      codes already in use are locked behind an explicit "Đổi mã".
-// Saves through DSC.saveCollection (localStorage), the same store the "Danh mục" page uses.
+// Saves through DSC.saveCollection: Supabase when configured (shared with the team), otherwise localStorage — the same store the "Danh mục" page uses.
 (function () {
   "use strict";
   const { el, slug, clone, PLATFORMS, PLATFORM_ORDER } = DSC;

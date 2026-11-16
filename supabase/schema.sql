@@ -169,3 +169,60 @@ create policy anon_select on public.audit_log for select to anon, authenticated 
 grant select, insert, update on public.catalog, public.links, public.templates to anon, authenticated;
 grant select on public.audit_log to anon, authenticated;
 grant execute on function public.save_link(jsonb) to anon, authenticated;
+
+-- =====================================================================================
+-- Hardening (no login): the anon key is public on GitHub Pages, so the database itself
+-- refuses anything that could hurt the team: links to non-DSC sites, foreign short links,
+-- oversized payloads, unknown catalog keys, and edits to columns the tool never changes.
+-- =====================================================================================
+
+-- A DSC page: http(s) on dsc.com.vn or any subdomain, max 2000 chars
+create or replace function public.dsc_url_ok(u text) returns boolean language sql immutable as $$
+  select u is not null and length(u) <= 2000
+    and u ~* '^https?://([a-z0-9-]+\.)*dsc\.com\.vn(:[0-9]+)?([/?#]|$)'
+$$;
+-- Short links only from the shorteners the tool uses
+create or replace function public.short_url_ok(u text) returns boolean language sql immutable as $$
+  select u is null or u ~ '^https://(is|v)\.gd/[A-Za-z0-9_-]{1,40}$'
+$$;
+-- Catalog rows: known collection, JSON array, bounded size; landing URLs and hosts must be DSC
+create or replace function public.catalog_ok(k text, r jsonb) returns boolean language sql immutable as $$
+  select k in ('accounts', 'positions', 'landings', 'products', 'prefixes', 'routes', 'slots', 'campaigns',
+               'hosts', 'groups', 'formats', 'hubs', 'conversions', 'steps')
+    and jsonb_typeof(r) = 'array'
+    and pg_column_size(r) < 300000
+    and (k <> 'landings' or not exists (
+      select 1 from jsonb_array_elements(r) e where not public.dsc_url_ok(e ->> 'url')))
+    and (k <> 'hosts' or not exists (
+      select 1 from jsonb_array_elements(r) e where not coalesce(lower(e ->> 'host') ~ '^([a-z0-9-]+\.)*dsc\.com\.vn$', false)))
+$$;
+
+alter table public.catalog drop constraint if exists catalog_valid;
+alter table public.catalog add constraint catalog_valid check (public.catalog_ok(key, rows) and length(coalesce(updated_by, '')) <= 80);
+
+alter table public.links drop constraint if exists links_valid;
+alter table public.links add constraint links_valid check (
+  public.dsc_url_ok(url) and public.short_url_ok(short_url)
+  and length(coalesce(label, '')) <= 300 and length(coalesce(title, '')) <= 300
+  and length(coalesce(note, '')) <= 1000 and length(coalesce(placed_at, '')) <= 1000
+  and length(coalesce(created_by, '')) <= 80 and length(coalesce(updated_by, '')) <= 80
+  and length(concat(source, medium, campaign, content, product, account_m, position, landing_id)) <= 1000
+  and (fields is null or pg_column_size(fields) < 8000));
+
+alter table public.templates drop constraint if exists templates_valid;
+alter table public.templates add constraint templates_valid check (
+  length(name) between 1 and 120
+  and pg_column_size(fields) < 8000
+  and (coalesce(fields ->> 'landing_url', '') = '' or public.dsc_url_ok(fields ->> 'landing_url')));
+
+-- save_link runs as owner, so anon needs no INSERT on links at all
+alter function public.save_link(jsonb) security definer set search_path = public;
+
+-- Column-level privileges: anon may only touch what the tool edits.
+-- Supabase grants ALL on new public tables by default, so start from nothing and add back.
+revoke all on public.catalog, public.links, public.templates, public.audit_log from anon, authenticated;
+revoke all on sequence public.audit_log_id_seq from anon, authenticated;
+grant select on public.catalog, public.links, public.templates, public.audit_log to anon, authenticated;
+grant insert (key, rows, updated_by), update (key, rows, updated_by) on public.catalog to anon, authenticated;
+grant update (status, placed_at, note, deleted_at, updated_by) on public.links to anon, authenticated;
+grant insert (name, fields, created_by, updated_by), update (name, use_count, deleted_at, updated_by) on public.templates to anon, authenticated;
